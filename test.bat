@@ -3,13 +3,13 @@ setlocal
 
 set ROOTDIR=%CD%
 
-cd %ROOTDIR%\src\tests
+cd %ROOTDIR%\tests
 
-set BLITZPATH=%ROOTDIR%\compiler\BlitzRC
+set BLITZPATH=%ROOTDIR%
 set FAILED=0
 
 for /R %%f in (*.bb) do (
-    "%BLITZPATH%\bin\blitzcc.exe" -t "%ROOTDIR%\src\tests\%%~nf.bb" || (echo "%ROOTDIR%\src\tests\%%~nf.bb failed at least one test" && SET FAILED=1)
+    "%BLITZPATH%\bin\blitzcc.exe" -t "%ROOTDIR%\tests\%%~nf.bb" || (echo "%ROOTDIR%\tests\%%~nf.bb failed at least one test" && SET FAILED=1)
 )
 
 cd %ROOTDIR%
