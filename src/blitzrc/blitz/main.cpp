@@ -33,22 +33,23 @@ static void showInfo(){
 }
 
 static void showUsage(){
-	cout<<"Usage: blitzcc [-h|-q|+q|-c|-d|-k|+k|-v|-t|-o exefile|-n icofile] [sourcefile.bb]"<<endl;
+	cout<<"Usage: blitzcc [-h|-q|+q|-c|-d|-k|+k|-v|-t|-o exefile|-n icofile|-w workingdir] [sourcefile.bb]"<<endl;
 }
 
 static void showHelp(){
 	showUsage();
-	cout<<"-h         : show this help"<<endl;
-	cout<<"-q         : quiet mode"<<endl;
-	cout<<"+q		  : very quiet mode"<<endl;
-	cout<<"-c         : compile only"<<endl;
-	cout<<"-d         : debug compile"<<endl;
-	cout<<"-k         : dump keywords"<<endl;
-	cout<<"+k         : dump keywords and syntax"<<endl;
-	cout<<"-v		  : version info"<<endl;
-	cout<<"-t         : run test"<<endl;
-	cout<<"-o exefile : generate executable"<<endl;
-	cout<<"-n icofile : set the executable icon"<<endl;
+	cout<<"-h         		: show this help"<<endl;
+	cout<<"-q         		: quiet mode"<<endl;
+	cout<<"+q		  		: very quiet mode"<<endl;
+	cout<<"-c         		: compile only"<<endl;
+	cout<<"-d         		: debug compile"<<endl;
+	cout<<"-k         		: dump keywords"<<endl;
+	cout<<"+k         		: dump keywords and syntax"<<endl;
+	cout<<"-v		  		: version info"<<endl;
+	cout<<"-t         		: run test"<<endl;
+	cout<<"-o exefile 		: generate executable"<<endl;
+	cout<<"-n icofile 		: set the executable icon"<<endl;
+	cout<<"-w workingdir 	: set the working directory"<<endl;
 
 }
 
@@ -185,7 +186,11 @@ int _cdecl main( int argc,char *argv[] ){
 		}else if( t=="-n" ){
 			if( ico_file.size() || k==argc-1 ) usageErr();
 			ico_file=argv[++k];
-		}else{
+		}else if( t=="-w" ) {
+			if( cwd.size() || k==argc-1 ) usageErr();
+			cwd=argv[++k];
+		}
+		else{
 			if( in_file.size() || t[0]=='-' || t[0]=='+' ) usageErr();
 			in_file=argv[k];
 			for( ++k;k<argc;++k ){
@@ -209,11 +214,13 @@ int _cdecl main( int argc,char *argv[] ){
 		in_file = in_file.substr(1, in_file.size() - 2);
 	}
 
-	int n = in_file.rfind('/');
-	if (n == string::npos) n = in_file.rfind('\\');
-	if (n != string::npos) {
-		if (!n || in_file[n - 1] == ':') ++n;
-		cwd = in_file.substr(0, n);
+	if (!cwd.size()) {
+		int n = in_file.rfind('/');
+		if (n == string::npos) n = in_file.rfind('\\');
+		if (n != string::npos) {
+			if (!n || in_file[n - 1] == ':') ++n;
+			cwd = in_file.substr(0, n);
+		}
 	}
 	
 	if( const char *er=openLibs() ) { err( er ); }
