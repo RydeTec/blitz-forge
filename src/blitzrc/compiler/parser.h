@@ -51,7 +51,7 @@ private:
 	DeclNode *parseFuncDecl();
 	FuncDeclNode* parseTestDecl();
 	DeclNode *parseStructDecl(DeclSeqNode* &funcs);
-	DeclNode *parseMethDecl(string &structIdent);
+	DeclNode *parseMethDecl(string &structIdent, string methIdent, int pos);
 
 	ExprSeqNode *parseExprSeq();
 

@@ -594,16 +594,25 @@ FuncDeclNode* Parser::parseTestDecl() {
 
 DeclNode *Parser::parseStructDecl(DeclSeqNode* &funcs){
 	int pos=toker->pos();
+	string className = toker->originalTextAt(toker->current_toke());
 	string ident=parseIdent();
 	string tag=parseTypeTag();
 	while( toker->curr()=='\n' ) toker->next();
 	a_ptr<DeclSeqNode> fields( d_new DeclSeqNode() );
 
+	// Always declare className as first Field
+	string idident; string idtag;
+	toker->rollback();
+	toker->inject("className$");
+	toker->next();
+	fields->push_back( parseVarDecl( DECL_FIELD,false,idident,idtag ) );
+
 	// Inherited Fields
 	for (int i=0;i<structs->size();++i) {
 		StructDeclNode* s = dynamic_cast<StructDeclNode*>(structs->decls.at(i));
 		if (s->ident == tag) {
-			for (int j=0;j<s->fields->size();++j) {
+			// Skip the first property from all parents as it is their className
+			for (int j=1;j<s->fields->size();++j) {
 				VarDeclNode* d = dynamic_cast<VarDeclNode*>(s->fields->decls.at(j));
 				fields->push_back(parseVarDecl(DECL_FIELD,false,d->ident,d->tag));
 			}
@@ -620,12 +629,30 @@ DeclNode *Parser::parseStructDecl(DeclSeqNode* &funcs){
 		}while( toker->curr()==',' );
 		while( toker->curr()=='\n' ) toker->next();
 	}
+
+	bool hasCreate = false;
 	while( toker->curr()==METHOD ) {
 		toker->next();
-		DeclNode* node = parseMethDecl(ident);
+		int pos=toker->pos();
+		string methIdent = parseIdent();
+		if (tolower(methIdent) == "create") hasCreate = true;
+		DeclNode* node = parseMethDecl(className, methIdent, pos);
 		funcs->push_back(node);
 		while( toker->curr()=='\n' ) toker->next();
 	}
+
+	// Implicit constructor
+	if (!hasCreate) {
+		toker->rollback();
+		int pos=toker->pos();
+		toker->inject("." + ident + "()\nreturn self\nEnd Method");
+		toker->next();
+
+		DeclNode* node = parseMethDecl(className, "create", pos);
+		funcs->push_back(node);
+		while( toker->curr()=='\n' ) toker->next();
+	}
+
 	if (toker->curr()!=ENDTYPE) exp( "'Field' or 'End Type'" );
 	toker->next();
 	DeclNode *d=d_new StructDeclNode( ident,fields.release(),tag );
@@ -633,17 +660,18 @@ DeclNode *Parser::parseStructDecl(DeclSeqNode* &funcs){
 	return d;
 }
 
-DeclNode *Parser::parseMethDecl(string &structIdent){
-	string selfIdent = "self";
-
-	int pos=toker->pos();
-	string ident=structIdent + "::" + parseIdent();
+DeclNode *Parser::parseMethDecl(string &structIdent, string methIdent, int pos){
+	string className=structIdent;
+	structIdent=tolower(structIdent);
+	string ident=structIdent + "::" + methIdent;
 	string tag=parseTypeTag();
 	if( toker->curr()!='(' ) exp( "'('" );
 	a_ptr<DeclSeqNode> params( d_new DeclSeqNode() );
 
+	// Implicit self property
 	bool processingSelf = true;
-	toker->inject(selfIdent + "." + structIdent + ",");
+	toker->inject("self." + structIdent + "=Null,");
+
 	if( toker->next()!=')' ){
 		for(;;){
 			string tempident;string temptag;
@@ -655,6 +683,12 @@ DeclNode *Parser::parseMethDecl(string &structIdent){
 		}
 		if( toker->curr()!=')' ) exp( "')'" );
 	}
+
+	// Always immediately set the className if constructor
+	if (tolower(methIdent) == "create") {
+		toker->inject("If (NOT self = Null)\nself\\className=\"" + className + "\"\nEnd If");
+	}
+
 	toker->next();
 	a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
 	if( toker->curr()!=ENDMETHOD ) exp( "'End Method'" );
@@ -883,6 +917,14 @@ ExprNode *Parser::parsePrimary( bool opt ){
 	case BBNEW:
 		toker->next();t=parseIdent();
 		result=d_new NewNode( t );
+		if( toker->curr()=='(') { 
+			toker->next();
+			a_ptr<ExprSeqNode> exprs( parseExprSeq() );
+			exprs->exprs.insert(exprs->exprs.begin(), result);
+			if( toker->curr()!=')' ) exp( "')'" );
+			toker->next();
+			result=d_new CallNode( t + "::create",t,exprs.release() );
+		}
 		break;
 	case FIRST:
 		toker->next();t=parseIdent();

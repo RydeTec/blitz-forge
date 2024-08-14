@@ -145,6 +145,17 @@ string Toker::getLine() {
 	return line;
 }
 
+string Toker::getOriginalLine() {
+	return originalLine;
+}
+
+string Toker::originalTextAt(int toke) {
+	if (toke >= tokes.size()) return "";
+	if (originalLine.size() != line.size()) return "";
+	int from=tokes[toke].from,to=tokes[toke].to;
+	return originalLine.substr( from,to-from );
+}
+
 int Toker::current_toke() {
 	return curr_toke;
 }
@@ -160,11 +171,13 @@ void Toker::nextline(){
 	if (tokes_cache.empty()) {
 		++curr_row;
 		if( in.eof() ){
+			originalLine.clear();
 			line.resize(1);line[0]=EOF;
 			tokes.push_back( Toke( EOF,0,1 ) );
 			return;
 		}
 		getline( in,line ); line+='\n';
+		originalLine = line;
 	}
 	
 	chars_toked+=line.size();

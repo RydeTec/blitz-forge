@@ -48,11 +48,13 @@ public:
 	int findNext( int toke, int offset=0 );
 	string text();
 	string textAt(int toke);
+	string originalTextAt(int toke);
 	int current_toke();
 	int lookAhead( int n );
 	void inject( string code );
 	void rollback();
 	string getLine();
+	string getOriginalLine();
 
 	static int chars_toked;
 
@@ -67,6 +69,7 @@ private:
 	};
 	istream &in;
 	string line;
+	string originalLine;
 	vector<Toke> tokes;
 	void nextline();
 	int curr_row,curr_toke;
