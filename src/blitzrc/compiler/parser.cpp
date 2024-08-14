@@ -630,6 +630,16 @@ DeclNode *Parser::parseStructDecl(DeclSeqNode* &funcs){
 		while( toker->curr()=='\n' ) toker->next();
 	}
 
+	// Create className Method
+	toker->rollback();
+	pos=toker->pos();
+	toker->inject("$()\nreturn \"" + className + "\"\nEnd Method");
+	toker->next();
+
+	DeclNode* node = parseMethDecl(className, "classname", pos);
+	funcs->push_back(node);
+	while( toker->curr()=='\n' ) toker->next();
+
 	bool hasCreate = false;
 	while( toker->curr()==METHOD ) {
 		toker->next();
@@ -660,7 +670,7 @@ DeclNode *Parser::parseStructDecl(DeclSeqNode* &funcs){
 	return d;
 }
 
-DeclNode *Parser::parseMethDecl(string &structIdent, string methIdent, int pos){
+DeclNode *Parser::parseMethDecl(string structIdent, string methIdent, int pos){
 	string className=structIdent;
 	structIdent=tolower(structIdent);
 	string ident=structIdent + "::" + methIdent;
