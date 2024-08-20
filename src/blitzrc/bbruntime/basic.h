@@ -3,6 +3,13 @@
 #define BASIC_H
 
 #include <string>
+#include <functional>
+#include <thread>
+#include <future>
+#include <memory>
+
+template<typename T>
+using BBFunction = T(__stdcall *)(va_list);
 
 enum{
 	BBTYPE_END=0,
@@ -130,6 +137,20 @@ BBStr *	 _bbObjToStr( BBObj *obj );
 int		 _bbObjToHandle( BBObj *obj );
 BBObj *	 _bbObjFromHandle( int handle,BBObjType *type );
 int		 _bbAssertTrue(int t);
+
+int		 _bbGetFunctionPointer();
+
+template<typename T>
+T        _bbCallFunctionPointer(BBFunction<T> functionPtr, va_list args);
+
+template<typename T>
+int      _bbAsyncCallFunctionPointer(BBFunction<T> functionPtr, va_list args);
+
+template<typename T>
+T		 _bbAwaitAsyncCall(int threadPtr);
+
+int _bbAsyncThenCall(va_list threadPtr, BBFunction<int> functionPtr);
+
 void	 _bbNullObjEx();
 
 void	 _bbRestore( BBData *data );

@@ -531,6 +531,88 @@ int _bbAssertTrue(int t) {
 	return t > 0;
 }
 
+int _bbGetFunctionPointer() {
+	intptr_t BasePointer, ReturnAddress, FunctionPointer;
+
+	__asm { //ASM. Do touch if suicidal.
+		mov BasePointer, ebp;		// Store current BasePointer
+	}
+
+	// Blitz uses X86 Call-Near (E8) instructions to call its own functions.
+	// We can simply deduce the Return Address like this because of that.
+	//-- Parent_EBP = *EBP
+	//-- Parent_RP = Parent_EBP + 16
+	ReturnAddress = *(intptr_t*)((*(intptr_t*)BasePointer) + 16);
+
+	// And since it's a Call-Near, the call is offset to the return address.
+	FunctionPointer = ReturnAddress + *(intptr_t*)(ReturnAddress - 4);
+
+	return static_cast<int>(FunctionPointer);
+}
+
+template<typename T>
+T _bbCallFunctionPointer(BBFunction<T> functionPtr, va_list args) {
+	int32_t StackPointer;
+	
+	__asm { // Store Stack Pointer
+		mov StackPointer, esp;
+	}
+
+	T returnValue = functionPtr(args);
+
+	__asm { // Restore Stack Pointer
+		mov esp, StackPointer;
+	}
+
+	va_end(args);
+	return returnValue;
+}
+
+template<typename T>
+int _bbAsyncCallFunctionPointer(BBFunction<T> functionPtr, va_list args) {
+	int32_t StackPointer;
+	
+	__asm { // Store Stack Pointer
+		mov StackPointer, esp;
+	}
+
+	// Create a std::future<int> and store it in a dynamically allocated object
+    std::future<T>* futurePtr = new std::future<T>(std::async(std::launch::async, functionPtr, args));
+
+	__asm { // Restore Stack Pointer
+		mov esp, StackPointer;
+	}
+
+	va_end(args);
+
+	// Return the pointer as intptr_t
+    return reinterpret_cast<int>(futurePtr);
+}
+
+template<typename T>
+T _bbAwaitAsyncCall(int threadPtr) {
+	// Convert the intptr_t back to a std::future<int>* and get the result
+    std::future<T>* futurePtr = reinterpret_cast<std::future<T>*>(threadPtr);
+    T result = futurePtr->get();
+
+    // Clean up the dynamically allocated memory
+    delete futurePtr;
+
+    return result;
+}
+
+template<typename T>
+int _bbPollAsyncCall(int threadPtr) {
+	// Convert the intptr_t back to a std::future<int>* and get the result
+    std::future<T>* futurePtr = reinterpret_cast<std::future<T>*>(threadPtr);
+
+	return futurePtr->wait_for(std::chrono::milliseconds(1)) == std::future_status::ready;
+}
+
+int _bbAsyncThenCall(va_list threadPtr, BBFunction<int> functionPtr) {
+	return _bbAsyncCallFunctionPointer(functionPtr, threadPtr);
+}
+
 void _bbNullObjEx(){
 	RTEX( "Object does not exist" );
 }
@@ -674,6 +756,11 @@ void basic_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym( "_bbObjToHandle",_bbObjToHandle );
 	rtSym( "_bbObjFromHandle",_bbObjFromHandle );
 	rtSym("_bbAssertTrue", _bbAssertTrue);
+	rtSym("_bbGetFunctionPointer", _bbGetFunctionPointer);
+	rtSym("_bbCallFunctionPointer", _bbCallFunctionPointer<int>);
+	rtSym("_bbAsyncCallFunctionPointer", _bbAsyncCallFunctionPointer<int>);
+	rtSym("_bbAwaitAsyncCall", _bbAwaitAsyncCall<int>);
+	rtSym("_bbPollAsyncCall", _bbPollAsyncCall<int>);
 	rtSym( "_bbNullObjEx",_bbNullObjEx );
 	rtSym( "_bbRestore",_bbRestore );
 	rtSym( "_bbReadInt",_bbReadInt );
@@ -688,4 +775,12 @@ void basic_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym( "_bbFPow",_bbFPow );
 	rtSym( "RuntimeStats",bbRuntimeStats );
 	rtSym("%Assert%expr", _bbAssertTrue);
+
+	rtSym("%FunctionPtr", _bbGetFunctionPointer);
+
+	rtSym("%Call%f_ptr%dto", _bbCallFunctionPointer<int>);
+	rtSym("%Async%f_ptr%dto", _bbAsyncCallFunctionPointer<int>);
+	rtSym("%Await%t_ptr", _bbAwaitAsyncCall<int>);
+	rtSym("%Poll%t_ptr", _bbPollAsyncCall<int>);
+	rtSym("%AsyncThen%t_ptr%f_ptr", _bbAsyncThenCall);
 }
