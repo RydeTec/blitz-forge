@@ -24,6 +24,7 @@ private:
 	Toker *toker,*main_toker;
 	map<string,DimNode*> arrayDecls;
 	bool test;
+	bool strictMode = false;
 
 	DeclSeqNode *consts;
 	DeclSeqNode *structs;

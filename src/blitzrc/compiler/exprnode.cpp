@@ -9,7 +9,9 @@
 // Cast an expression to a type //
 //////////////////////////////////
 ExprNode *ExprNode::castTo( Type *ty,Environ *e, bool up ){
+	sem_type->strict = e->strict;
 	ty->strict = e->strict;
+
 	bool can = sem_type->canCastTo( ty ) || (up && ty->canCastTo(sem_type));
 	if( !can ){
 		if (sem_type->structType() && ty->structType()) {

@@ -19,59 +19,59 @@ Function resetGlobals()
     counter = 0
 End Function
 
-Function testFunction%(getPtr=False)
+Function testFunction@(getPtr=False)
     if (getPtr)
         return FunctionPtr()
     end if
 
     counter = 1
-    Return 1
+    Return new BasicDTO(1)
 End Function
 
-Function intenseFunction%(var%=0)
-    if (var = 0)
+Function intenseFunction@(arg.BasicDTO=Null)
+    if (arg = Null)
         return FunctionPtr()
     end if
 
     delay 100
-    counter = var
-    Return var
+    counter = arg\var
+    Return new BasicDTO(arg\var)
 End Function
 
-Function secondTestFunction%( dto.BasicDTO=Null )
+Function secondTestFunction@( dto.BasicDTO=Null )
     if (dto = Null)
         return FunctionPtr()
     end if
 
     counter = dto\var
-    Return Ptr (new BasicDTO(dto\var))
+    Return new BasicDTO(dto\var)
 End Function
 
-Function thirdTestFunction%( var%=0 )
-    if (var = 0)
+Function thirdTestFunction@( arg.BasicDTO=Null )
+    if (arg = Null)
         return FunctionPtr()
     end if
 
-    var = var + 1
-    return var
+    var = arg\var + 1
+    return new BasicDTO(var)
 End Function
 
-Function fourthTestFunction%( funcPtr%=0 )
-    if (funcPtr = 0)
+Function fourthTestFunction@( threadPtr.BBThread=Null )
+    if (threadPtr = Null)
         return FunctionPtr()
     end if
 
-    var = Await(funcPtr)
+    result.BasicDTO = Await(threadPtr)
 
-    var = var + 1
-    return var
+    var = result\var + 1
+    return new BasicDTO(var)
 End Function
 
 Test testFunctionPointer()
     f_ptr = testFunction(true) ; To get a pointer of a function you have to call the function and return the pointer
     Assert(NOT f_ptr = 0)
-    value = testFunction()
-    Assert(value = 1)
+    value.BasicDTO = testFunction()
+    Assert(value\var = 1)
     Assert(counter = 1)
 
     ; Reset state
@@ -80,14 +80,14 @@ End Test
 
 Test testCallPointer()
     ; You can pass a null object signaling you only want the function pointer returned
-    f_ptr = secondTestFunction(Null)
-    Assert(NOT f_ptr = 0)
+    f_ptr.BBFunction = secondTestFunction(Null)
+    Assert(NOT f_ptr = Null)
 
     ; Craft a DTO object to send to the pointer
     dto.BasicDTO = new BasicDTO(1)
 
     ; The function need to work with Ptrs so cast your DTO to a Ptr and then use Ptr to cast back the returned DTO
-    result.BasicDTO = Ptr Call(f_ptr, Ptr dto)
+    result.BasicDTO = Call(f_ptr, Ptr dto)
     Assert(result\var = 1)
     Assert(counter = 1)
 
@@ -96,14 +96,14 @@ Test testCallPointer()
 End Test
 
 Test testThread()
-    f_ptr = testFunction(true)
-    Assert(NOT f_ptr = 0)
+    f_ptr.BBFunction = testFunction(true)
+    Assert(NOT f_ptr = Null)
 
-    f_ptr_2 = intenseFunction(0)
-    Assert(NOT f_ptr_2 = 0)
+    f_ptr_2.BBFunction = intenseFunction(Null)
+    Assert(NOT f_ptr_2 = Null)
 
     ; You can asyncronously call function pointers as well
-    thread = Async (f_ptr_2, 2)
+    thread.BBThread = Async (f_ptr_2, new BasicDTO(2))
     Assert(counter = 0)
 
     ; The above will return with a future variable so you can run other code on the main thread while waiting for it's value
@@ -111,18 +111,18 @@ Test testThread()
     Assert(counter = 1)
 
     ; You can also pause the current thread while you wait for the future variable to populate
-    result = Await (thread)
+    result.BasicDTO = Await (thread)
     Assert(counter = 2)
-    Assert(result = 2)
+    Assert(result\var = 2)
 
     resetGlobals()
 End Test
 
 Test testThreadPoll()
-    f_ptr = intenseFunction(0)
-    Assert(NOT f_ptr = 0)
+    f_ptr.BBFunction = intenseFunction(Null)
+    Assert(NOT f_ptr = Null)
 
-    thread = Async (f_ptr, 2)
+    thread.BBThread = Async (f_ptr, new BasicDTO(2))
     Assert(counter = 0)
 
     checkCount = 0
@@ -130,9 +130,9 @@ Test testThreadPoll()
         ; Poll allows for checking if a thread is ready to return a value so you don't have to block
         ; the current thread just to check if it is ready and then await will return the value immediately.
         if (Poll(thread))
-            result = Await(thread)
+            result.BasicDTO = Await(thread)
             Assert(counter = 2)
-            Assert(result = 2)
+            Assert(result\var = 2)
 
             Exit
         end if
@@ -145,12 +145,12 @@ Test testThreadPoll()
 End Test
 
 Test testThen()
-    f_ptr = thirdTestFunction()
-    f_ptr_2 = fourthTestFunction()
+    f_ptr.BBFunction = thirdTestFunction()
+    f_ptr_2.BBFunction = fourthTestFunction()
 
-    t_ptr = Async(f_ptr, 1)
-    t_ptr_2 = AsyncThen(t_ptr, f_ptr_2)
+    t_ptr.BBThread = Async(f_ptr, new BasicDTO(1))
+    t_ptr_2.BBThread = AsyncThen(t_ptr, f_ptr_2)
 
-    var = Await(t_ptr_2)
-    Assert(var = 3)
+    result.BasicDTO = Await(t_ptr_2)
+    Assert(result\var = 3)
 End Test

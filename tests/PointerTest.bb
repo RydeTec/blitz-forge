@@ -8,23 +8,22 @@ Test testPointers()
     Local bank_ptr_4 = Int bank_ptr_3
     Local bank_ptr_5@ = Ptr bank_ptr_4
 
-    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_4) And BankSize(bank) = BankSize(bank_ptr_5))
+    ; BankSize(bank_ptr_4) should fail type conversion along with any use of ptr_4 as a pointer
+
+    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_5))
 
     ResizeBank bank, 8
-    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_4) And BankSize(bank) = BankSize(bank_ptr_5))
+    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_5))
 
     ResizeBank bank_ptr_1, 16
-    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_4) And BankSize(bank) = BankSize(bank_ptr_5))
+    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_5))
 
     ResizeBank bank_ptr_2, 32
-    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_4) And BankSize(bank) = BankSize(bank_ptr_5))
+    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_5))
 
     ResizeBank bank_ptr_3, 64
-    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_4) And BankSize(bank) = BankSize(bank_ptr_5))
-
-    ResizeBank bank_ptr_4, 128
-    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_4) And BankSize(bank) = BankSize(bank_ptr_5))
+    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_5))
 
     ResizeBank bank_ptr_5, 256
-    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_4) And BankSize(bank) = BankSize(bank_ptr_5))
+    Assert(BankSize(bank) = BankSize(bank_ptr_1) And BankSize(bank) = BankSize(bank_ptr_2) And BankSize(bank) = BankSize(bank_ptr_3) And BankSize(bank) = BankSize(bank_ptr_5))
 End Test

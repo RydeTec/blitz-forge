@@ -16,7 +16,7 @@ static struct i_type : public Type{
 		return t==Type::int_type || t==Type::float_type || t==Type::string_type || (t->blitzType() && !t->strict);
 	}
 	bool canPointTo(Type* t) {
-		return t->blitzType() && t->isPointer();
+		return false;
 	}
 	string name(){return "Int";}
 }i;
@@ -83,6 +83,8 @@ static BlitzType bbfont( "BBFont" );
 static BlitzType bbstream( "BBStream" );
 static BlitzType bbdir( "BBDir" );
 static BlitzType bbpointer("BBPointer");
+static BlitzType bbfunction("BBFunction");
+static BlitzType bbthread("BBThread");
 
 Type *Type::void_type=&v;
 Type *Type::int_type=&i;

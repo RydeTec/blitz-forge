@@ -776,11 +776,11 @@ void basic_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym( "RuntimeStats",bbRuntimeStats );
 	rtSym("%Assert%expr", _bbAssertTrue);
 
-	rtSym("%FunctionPtr", _bbGetFunctionPointer);
+	rtSym("(BBFunction)FunctionPtr", _bbGetFunctionPointer);
 
-	rtSym("%Call%f_ptr%dto", _bbCallFunctionPointer<int>);
-	rtSym("%Async%f_ptr%dto", _bbAsyncCallFunctionPointer<int>);
-	rtSym("%Await%t_ptr", _bbAwaitAsyncCall<int>);
-	rtSym("%Poll%t_ptr", _bbPollAsyncCall<int>);
-	rtSym("%AsyncThen%t_ptr%f_ptr", _bbAsyncThenCall);
+	rtSym("(BBPointer)Call(BBFunction)f_ptr(BBPointer)dto", _bbCallFunctionPointer<int>);
+	rtSym("(BBThread)Async(BBFunction)f_ptr(BBPointer)dto", _bbAsyncCallFunctionPointer<int>);
+	rtSym("(BBPointer)Await(BBThread)t_ptr", _bbAwaitAsyncCall<int>);
+	rtSym("%Poll(BBThread)t_ptr", _bbPollAsyncCall<int>);
+	rtSym("(BBThread)AsyncThen(BBThread)t_ptr(BBFunction)f_ptr", _bbAsyncThenCall);
 }

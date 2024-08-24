@@ -82,6 +82,8 @@ StmtSeqNode *Parser::parseStmtSeq( int scope ){
 
 void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 	for(;;){
+		if (strictMode) stmts->setStrict();
+
 		while( toker->curr()==':' || (scope!=STMTS_LINE && toker->curr()=='\n') ) {
 			toker->next();
 		}
@@ -158,6 +160,9 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 
 				included.insert( incfile );
 
+				bool wasStrict = strictMode;
+				strictMode = false;
+
 				a_ptr<StmtSeqNode> ss( parseStmtSeq( scope ) );
 				if( toker->curr()!=EOF ) exp( "end-of-file" );
 
@@ -165,6 +170,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 
 				toker=t_toker;
 				incfile=t_inc;
+				strictMode = wasStrict;
 			}
 			break;
 		case IDENT:
@@ -438,6 +444,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			if (stmts->isStrict()) ex("'Strict' may only appear once per file");
 			if (scope != STMTS_PROG || stmts->size() > 0) ex("'Strict' must be the first statement in the file");
 			toker->next(); stmts->setStrict();
+			strictMode = true;
 			break;
 		case NOTRACE:
 			toker->next(); Toker::noTrace = true;
