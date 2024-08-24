@@ -9,7 +9,7 @@ fil$=Lower$( CommandLine$() )
 index=Instr( fil$,"." )
 If index>0 ext$=Mid$( fil$,index+1 )
 Select ext$
-Case "x","3ds"
+Case "x","3ds","b3d"
 	ShowModel( fil$,False )
 Case "md2"
 	ShowModel( fil$,True )
@@ -18,9 +18,9 @@ Case "bmp","jpg","png","pcx","tga","iff"
 Case "wav"
 	ShowSound( fil$ )
 Case "mp3","mid","mod","x3m","xm","it"
-	ShowMusic( fil$ )
+	ShowSound( fil$ )
 Default
-	RuntimeError "Unknown File Extension"
+	RuntimeError "Unknown File Extension " + ext$
 End Select
 
 End
@@ -102,10 +102,4 @@ Function ShowSound( fil$ )
 		WaitKey
 		If KeyHit(1) End
 	Forever
-End Function
-
-Function ShowMusic( fil$ )
-	music=PlayMusic( fil$ )
-	If music=0 RuntimeError "Unable to play music: "+fil$
-	WaitKey
 End Function

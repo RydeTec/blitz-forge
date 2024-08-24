@@ -10,3 +10,5 @@ bin/linker.dll
 bin/runtime.dll
 
 *.pdb
+
+*.bb_bak1
