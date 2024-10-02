@@ -74,8 +74,9 @@ void Parser::parseChar( int c ){
 	toker->next();
 }
 
-StmtSeqNode *Parser::parseStmtSeq( int scope ){
+StmtSeqNode *Parser::parseStmtSeq( int scope, vector<string> localIdents ){
 	a_ptr<StmtSeqNode> stmts( d_new StmtSeqNode( incfile ) );
+	stmts->localIdents = localIdents;
 	parseStmtSeq( stmts,scope );
 	return stmts.release();
 }
@@ -133,6 +134,14 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			}
 		} else {
 			assertText = "";
+		}
+
+		// Disable garbage collection if not in strict mode and strict is not set
+		if (scope == STMTS_PROG && stmts->size() == 0 && toker->curr() != USESTRICTTYPING && !strictMode && collectingGarbage) {
+			cout << "Included file is not Strict, disabling GC globally" << endl;
+			toker->rollback();
+			toker->inject("DisableGC");
+			toker->next();
 		}
 
 		switch( toker->curr() ){
@@ -202,7 +211,16 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 					result=d_new ExprStmtNode( call );
 				}else{
 					//must be a var
+					bool isField = false;
+					if (strictMode && toker->curr()=='\\') {
+						isField = true;
+					}
 					a_ptr<VarNode> var( parseVar( ident,tag ) );
+					if (strictMode) {
+						bool isGlobal = std::find(globalIdents.begin(), globalIdents.end(), ident) != globalIdents.end();
+						bool isLocal = std::find(stmts->localIdents.begin(), stmts->localIdents.end(), ident) != stmts->localIdents.end();
+						if (!isField && !isGlobal && !isLocal) ex( ident + " assignment should start with local, global or const modifier");
+					}
 					if( toker->curr()!='=' ) exp( "variable assignment" );
 					toker->next();ExprNode *expr=parseExpr( false );
 					result=d_new AssNode( var.release(),expr );
@@ -211,7 +229,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			break;
 		case IF:
 			{
-				toker->next();result=parseIf();
+				toker->next();result=parseIf(stmts->localIdents);
 				if( toker->curr()==ENDIF ) toker->next();
 			}
 			break;
@@ -220,7 +238,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 				if (test && scope == STMTS_PROG) ex("Test files cannot construct loops in global scope.");
 				toker->next();
 				a_ptr<ExprNode> expr( parseExpr( false ) );
-				a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
+				a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK, stmts->localIdents ) );
 				int pos=toker->pos();
 				if( toker->curr()!=WEND ) exp( "'Wend'" );
 				toker->next();
@@ -231,7 +249,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			{
 				if (test && scope == STMTS_PROG) ex("Test files cannot construct loops in global scope.");
 				toker->next();ExprNode *expr=0;
-				a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
+				a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK, stmts->localIdents ) );
 				int curr=toker->curr();
 				int pos=toker->pos();
 				if( curr!=UNTIL && curr!=FOREVER ) exp( "'Until' or 'Forever'" );
@@ -249,12 +267,12 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 						toker->next();
 						a_ptr<ExprSeqNode> exprs( parseExprSeq() );
 						if( !exprs->size() ) exp( "expression sequence" );
-						a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
+						a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK, stmts->localIdents ) );
 						selNode->push_back( d_new CaseNode( exprs.release(),stmts.release() ) );
 						continue;
 					}else if( toker->curr()==DEFAULT ){
 						toker->next();
-						a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
+						a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK, stmts->localIdents ) );
 						if( toker->curr()!=ENDSELECT ) exp( "'End Select'" );
 						selNode->defStmts=stmts.release();
 						break;
@@ -277,7 +295,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 				if( toker->next()==EACH ){
 					toker->next();
 					string ident=parseIdent();
-					stmts=parseStmtSeq( STMTS_BLOCK );
+					stmts=parseStmtSeq( STMTS_BLOCK, stmts->localIdents );
 					int pos=toker->pos();
 					if( toker->curr()!=NEXT ) exp( "'Next'" );
 					toker->next();
@@ -291,7 +309,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 					if( toker->curr()==STEP ){
 						toker->next();step=parseExpr( false );
 					}else step=d_new IntConstNode( 1 );
-					stmts=parseStmtSeq( STMTS_BLOCK );
+					stmts=parseStmtSeq( STMTS_BLOCK, stmts->localIdents );
 					int pos=toker->pos();
 					if( toker->curr()!=NEXT ) exp( "'Next'" );
 					toker->next();
@@ -374,6 +392,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 				toker->next();
 				string ident;string tag;
 				DeclNode* node = parseVarDecl( DECL_GLOBAL,true,ident,tag );
+				globalIdents.push_back(ident);
 
 				bool isBlitzType=false;
 				for (int i=0; i<Type::blitzTypes.size(); i++) {
@@ -403,12 +422,22 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 
 				CallNode* call = d_new CallNode(ident, tag, d_new ExprSeqNode());
 				result = d_new ExprStmtNode(call);
+				result->pos = pos;
+				stmts->push_back(result);
+
+				call = d_new CallNode("runtimestats", "", d_new ExprSeqNode());
+				result = d_new ExprStmtNode(call);
 			}
 			break;
 		}
 		case ASSERT: {
 			ExprNode* expr = parseExpr(false);
 			result = d_new AssNode(parseVar("", ""), expr);
+			break;
+		}
+		case RELEASE: {
+			ExprNode* expr = parseExpr(false);
+			result = d_new ExprStmtNode(expr);
 			break;
 		}
 		case DIM:
@@ -424,6 +453,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 				toker->next();
 				string tempident;string temptag;
 				DeclNode *d=parseVarDecl( DECL_LOCAL,false,tempident,temptag );
+				stmts->localIdents.push_back(tempident);
 				StmtNode *stmt=d_new DeclStmtNode( d );
 				stmt->pos=pos;pos=toker->pos();
 				stmts->push_back( stmt );
@@ -435,6 +465,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 				toker->next();
 				string tempident;string temptag;
 				DeclNode *d=parseVarDecl( DECL_GLOBAL,false,tempident,temptag );
+				globalIdents.push_back(tempident);
 				StmtNode *stmt=d_new DeclStmtNode( d );
 				stmt->pos=pos;pos=toker->pos();
 				stmts->push_back( stmt );
@@ -448,6 +479,17 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			break;
 		case NOTRACE:
 			toker->next(); Toker::noTrace = true;
+			break;
+		case DISABLEGC:
+			toker->next();
+			result = d_new GCNode(false);
+			collectingGarbage = false;
+			break;
+		case ENABLEGC:
+			if (!strictMode) ex("'EnableGC' may only be used in strict mode");
+			toker->next();
+			result = d_new GCNode(true);
+			collectingGarbage = true;
 			break;
 		case '.':
 			{
@@ -717,7 +759,7 @@ DeclNode *Parser::parseMethDecl(string structIdent, string methIdent, int pos){
 	return d;
 }
 
-IfNode *Parser::parseIf(){
+IfNode *Parser::parseIf(vector<string> localIdents){
 	a_ptr<ExprNode> expr;
 	a_ptr<StmtSeqNode> stmts,elseOpt;
 
@@ -725,7 +767,7 @@ IfNode *Parser::parseIf(){
 	if (toker->curr() == THEN) toker->next();
 
 	bool blkif=isTerm( toker->curr() );
-	stmts=parseStmtSeq( blkif ? STMTS_BLOCK : STMTS_LINE );
+	stmts=parseStmtSeq( blkif ? STMTS_BLOCK : STMTS_LINE, localIdents );
 
 	if( toker->curr()==ELSEIF ){
 		int pos=toker->pos();
@@ -736,7 +778,7 @@ IfNode *Parser::parseIf(){
 		elseOpt->push_back( ifnode );
 	}else if( toker->curr()==ELSE ){
 		toker->next();
-		elseOpt=parseStmtSeq( blkif ? STMTS_BLOCK : STMTS_LINE );
+		elseOpt=parseStmtSeq( blkif ? STMTS_BLOCK : STMTS_LINE, localIdents );
 	}
 	if( blkif ){
 		if( toker->curr()!=ENDIF ) exp( "'EndIf'" );
@@ -901,6 +943,17 @@ ExprNode *Parser::parseUniExpr( bool opt ){
 		result=parseUniExpr( false );
 		result=d_new RecastNode( result,t );
 		break;
+	case RELEASE:
+		if( toker->next()=='.' ) toker->next();
+		t=parseIdent();
+		result=parseUniExpr( false );
+		result=d_new ReleaseNode( result,t );
+		break;
+	case REFERENCE:
+		toker->next();
+		result=parseUniExpr( false );
+		result=d_new ReferenceNode( result );
+		break;
 	case '+':case '-':case '~':case ABS:case SGN:
 		toker->next();
 		result=parseUniExpr( false );
@@ -941,6 +994,10 @@ ExprNode *Parser::parsePrimary( bool opt ){
 			if( toker->curr()!=')' ) exp( "')'" );
 			toker->next();
 			result=d_new CallNode( t + "::create",t,exprs.release() );
+		} else {
+			if (strictMode) {
+				ex( "New must call constructor" );
+			}
 		}
 		break;
 	case FIRST:

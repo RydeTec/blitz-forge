@@ -36,6 +36,12 @@ static int next_handle;
 static map<int,BBObj*> handle_map;
 static map<BBObj*,int> object_map;
 
+//reference counts
+static map<int, int> reference_map;
+
+//garbage collection switch
+static bool gcEnabled = false;
+
 static BBType _bbIntType( BBTYPE_INT );
 static BBType _bbFltType( BBTYPE_FLT );
 static BBType _bbStrType( BBTYPE_STR );
@@ -613,6 +619,53 @@ int _bbAsyncThenCall(va_list threadPtr, BBFunction<int> functionPtr) {
 	return _bbAsyncCallFunctionPointer(functionPtr, threadPtr);
 }
 
+int _bbReference(int vPtr) {
+	if (vPtr == 0) {
+		return 0;
+	}
+
+	//cout << "added ref " << vPtr << endl;
+	++reference_map[vPtr];
+	return vPtr;
+}
+
+int _bbRelease(int vPtr, const char *s) {
+	if (vPtr == 0) {
+		return 0;
+	}
+
+	//cout << "released ref " << vPtr << " " << s << endl;
+	int count = --reference_map[vPtr];
+
+	if (count < 1) {
+		reference_map.erase(vPtr);
+
+		if (gcEnabled && count == 0) {
+			//cout << "deleting ref" << endl;
+			if (strcmp(s, "BBCustom") == 0) {
+				void* objPtr = reinterpret_cast<void*>(vPtr);
+				BBObj* obj = static_cast<BBObj*>(objPtr);
+
+				_bbObjDelete(obj);
+			}
+		}
+	}
+
+	return vPtr;
+}
+
+int _bbReferenceCount(int vPtr) {
+	if (vPtr == 0) {
+		return 0;
+	}
+
+	return reference_map[vPtr];
+}
+
+void _bbSetGC(int enabled) {
+	gcEnabled = enabled;
+}
+
 void _bbNullObjEx(){
 	RTEX( "Object does not exist" );
 }
@@ -783,4 +836,10 @@ void basic_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym("(BBPointer)Await(BBThread)t_ptr", _bbAwaitAsyncCall<int>);
 	rtSym("%Poll(BBThread)t_ptr", _bbPollAsyncCall<int>);
 	rtSym("(BBThread)AsyncThen(BBThread)t_ptr(BBFunction)f_ptr", _bbAsyncThenCall);
+
+	rtSym("_bbReference", _bbReference);
+	rtSym("_bbRelease", _bbRelease);
+	rtSym("%RefCount(BBPointer)v_ptr", _bbReferenceCount);
+
+	rtSym("_bbSetGC", _bbSetGC);
 }

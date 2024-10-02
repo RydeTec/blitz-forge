@@ -420,7 +420,12 @@ void ReturnNode::semant( Environ *e ){
 			}else{
 				expr=d_new IntConstNode( 0 );
 			}
+		} else {
+			if (!expr->callNode()) {
+				expr=d_new ReferenceNode( expr );
+			}
 		}
+		
 		expr=expr->semant( e );
 
 		expr=expr->castTo( e->returnType,e );
@@ -588,3 +593,12 @@ void ReadNode::translate( Codegen *g ){
 	g->code( var->store( g,t ) );
 }
 
+//////////////////////////
+//	Garbage Collection	//
+//////////////////////////
+void GCNode::semant( Environ *e) {
+}
+
+void GCNode::translate( Codegen *g ) {
+	g->code( call("__bbSetGC", iconst(shouldEnable)));
+}

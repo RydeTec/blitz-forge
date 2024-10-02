@@ -742,3 +742,53 @@ TNode *RecastNode::translate( Codegen *g ){
 	TNode *t=expr->translate( g );
 	return t;
 }
+
+//////////////
+//	Release	//
+//////////////
+
+ExprNode *ReleaseNode::semant( Environ *e ){
+	expr=expr->semant( e );
+	expr=expr->castTo( e->findType( "BBPointer" ),e );
+	sem_type=e->findType( type_ident );
+	if( !sem_type ) ex( "custom type name not found" );
+	if( !sem_type->structType() && !sem_type->blitzType() ) ex( "type is not a custom or blitz type" );
+	return this;
+}
+
+TNode *ReleaseNode::translate( Codegen *g ){
+	TNode *t=expr->translate( g );
+
+	string typeName = "";
+
+	if (sem_type->structType()) {
+		typeName = "BBCustom";
+	} else if (sem_type->blitzType()) {
+		BlitzType* ty = sem_type->blitzType();
+		
+		typeName = ty->ident;
+	}
+
+	string lab=genLabel();
+	g->s_data( typeName,lab );
+	
+	return call( "__bbRelease",t, global(lab));
+}
+
+//////////////////
+//	Reference	//
+//////////////////
+ExprNode *ReferenceNode::semant( Environ *e ){
+	expr=expr->semant( e );
+	sem_type=expr->sem_type;
+	if( !expr->sem_type ) ex( "reference type name not found" );
+	if( !expr->sem_type->structType() && !expr->sem_type->blitzType() ) return expr;
+	expr=expr->castTo( e->findType( "BBPointer" ),e );
+	return this;
+}
+
+TNode *ReferenceNode::translate( Codegen *g ){
+	TNode *t=expr->translate( g );
+	
+	return call( "__bbReference",t);
+}

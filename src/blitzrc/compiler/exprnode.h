@@ -6,6 +6,7 @@
 #include "node.h"
 
 struct ConstNode;	//is constant int,float or string
+struct CallNode;
 
 struct ExprNode : public Node{
 	Type *sem_type;
@@ -18,6 +19,7 @@ struct ExprNode : public Node{
 	virtual ExprNode *semant( Environ *e )=0;
 	virtual TNode *translate( Codegen *g )=0;
 	virtual ConstNode *constNode(){ return 0; }
+	virtual CallNode *callNode(){ return 0; }
 };
 
 struct ExprSeqNode : public Node{
@@ -50,6 +52,7 @@ struct CallNode : public ExprNode{
 	~CallNode(){ delete exprs; }
 	ExprNode *semant( Environ *e );
 	TNode *translate( Codegen *g );
+	CallNode *callNode() { return this; }
 };
 
 struct VarExprNode : public ExprNode{
@@ -214,5 +217,22 @@ struct RecastNode : public ExprNode{
 	~RecastNode(){ delete expr; }
 	ExprNode *semant( Environ *e );
 	TNode *translate( Codegen *g );
+};
+
+struct ReleaseNode : public ExprNode{
+	ExprNode *expr;
+	string type_ident;
+	ReleaseNode( ExprNode *e,const string &t ):expr(e),type_ident(t){}
+	~ReleaseNode(){ delete expr; }
+	ExprNode *semant( Environ *e );
+	TNode *translate( Codegen *g );
+};
+
+struct ReferenceNode : public ExprNode {
+	ExprNode* expr;
+	ReferenceNode(ExprNode* e) :expr(e) {}
+	~ReferenceNode() { delete expr; }
+	ExprNode* semant(Environ* e);
+	TNode* translate(Codegen* g);
 };
 #endif

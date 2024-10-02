@@ -78,6 +78,8 @@ static void makeKeywords(){
 	alphaTokes["Handle"]=BBHANDLE;
 	alphaTokes["Assert"] = ASSERT;
 	alphaTokes["Recast"]=RECAST;
+	alphaTokes["Release"]=RELEASE;
+	alphaTokes["Reference"]=REFERENCE;
 
 	alphaTokes["And"]=AND;
 	alphaTokes["Or"]=OR;
@@ -91,6 +93,9 @@ static void makeKeywords(){
 
 	alphaTokes["Strict"]=USESTRICTTYPING;
 	alphaTokes["NoTrace"] = NOTRACE;
+	alphaTokes["DisableGC"] = DISABLEGC;
+	alphaTokes["EnableGC"] = ENABLEGC;
+
 	alphaTokes["Ptr"] = BBPOINTER;
 
 	map<string,int>::const_iterator it;

@@ -1,4 +1,5 @@
 Strict
+EnableGC
 
 Test testPointers()
     Local bank.BBBank = CreateBank( 4 ) 

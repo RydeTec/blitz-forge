@@ -17,6 +17,7 @@ struct StmtSeqNode : public Node{
 	string file;
 	bool strictMode = false;
 	vector<StmtNode*> stmts;
+	vector<string> localIdents;
 	StmtSeqNode( const string &f ):file(f){}
 	~StmtSeqNode(){ for( ;stmts.size();stmts.pop_back() ) delete stmts.back(); }
 	void semant( Environ *e );
@@ -231,4 +232,11 @@ struct RestoreNode : public StmtNode{
 	void translate( Codegen *g );
 };
 
+struct GCNode : public StmtNode {
+	int shouldEnable;
+	GCNode(bool e) :shouldEnable(e){}
+	~GCNode() {}
+	void semant(Environ* e);
+	void translate(Codegen* g);
+};
 #endif

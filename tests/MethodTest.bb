@@ -1,4 +1,5 @@
 Strict
+EnableGC
 
 Type TestStruct
     Field testVar$
@@ -8,7 +9,7 @@ Type TestStruct
 End Type
 
 Test testMutation()
-    Local testType1.TestStruct = new TestStruct
+    Local testType1.TestStruct = new TestStruct()
 
     testType1\testVar = "initial set"
 
@@ -26,16 +27,15 @@ Type ConstructorTest
     Field value2$
     Field value3$
     Method create.ConstructorTest(value1$, value2$, value3$)
-        Local instance.ConstructorTest = new ConstructorTest
-        instance\value1 = value1
-        instance\value2 = value2
-        instance\value3 = value3
-        return instance
+        self\value1 = value1
+        self\value2 = value2
+        self\value3 = value3
+        return self
     End Method
 End Type
 
 Test testConstructor()
-    Local instance.ConstructorTest = ConstructorTest::create(Null, "value1", "value2", "value3")
+    Local instance.ConstructorTest = new ConstructorTest("value1", "value2", "value3")
     Assert(instance\value1 = "value1") : Assert(instance\value2 = "value2") : Assert(instance\value3 = "value3")
 End Test
 

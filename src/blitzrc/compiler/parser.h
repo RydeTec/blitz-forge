@@ -25,6 +25,7 @@ private:
 	map<string,DimNode*> arrayDecls;
 	bool test;
 	bool strictMode = false;
+	bool collectingGarbage = false;
 
 	DeclSeqNode *consts;
 	DeclSeqNode *structs;
@@ -32,7 +33,9 @@ private:
 	DeclSeqNode *funcs;
 	DeclSeqNode *datas;
 
-	StmtSeqNode *parseStmtSeq( int scope );
+	vector<string> globalIdents;
+
+	StmtSeqNode *parseStmtSeq( int scope, vector<string> localIdents = vector<string>() );
 	void parseStmtSeq( StmtSeqNode *stmts,int scope );
 
 	void ex( const string &s );
@@ -45,7 +48,7 @@ private:
 	VarNode *parseVar();
 	VarNode *parseVar( const string &ident,const string &tag );
 	CallNode *parseCall( const string &ident,const string &tag );
-	IfNode *parseIf();
+	IfNode *parseIf(vector<string> localIdents = vector<string>());
 
 	DeclNode *parseVarDecl( int kind,bool constant,string &ident,string &tag );
 	DimNode  *parseArrayDecl();

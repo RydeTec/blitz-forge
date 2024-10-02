@@ -32,7 +32,7 @@ struct Node{
 	static Type *tagType( const string &s,Environ *e );
 
 	static TNode *createVars( Environ *e );
-	static TNode *deleteVars( Environ *e );
+	static TNode *deleteVars( Environ *e, Codegen *g );
 
 	static TNode *seq( TNode *l,TNode *r );
 	static TNode *move( TNode *src,TNode *dest );

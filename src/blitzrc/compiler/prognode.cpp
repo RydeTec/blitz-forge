@@ -77,7 +77,7 @@ void ProgNode::translate( Codegen *g,const vector<UserFunc> &usrfuncs ){
 
 	//leave main program
 	g->label( sem_env->funcLabel+"_leave" );
-	t=deleteVars( sem_env );
+	t=deleteVars( sem_env, g );
 	if( g->debug ) t=d_new TNode( IR_SEQ,call( "__bbDebugLeave" ),t );
 	g->leave( t,0 );
 

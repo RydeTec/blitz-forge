@@ -139,6 +139,16 @@ void FuncDeclNode::translate( Codegen *g ){
 		g->code( call( "__bbDebugEnter",local(0),iconst((int)sem_env),global(t) ) );
 	}
 
+	for( int k=0;k<sem_env->decls->size();++k ){
+		TNode *rel=0;
+		Decl *d=sem_env->decls->decls[k];
+		Type *type=d->type;
+
+		if (type->structType() || type->blitzType()) {
+			g->code(call("__bbReference", mem( local( d->offset ) )));
+		}
+	}
+
 	//translate statements
 	stmts->translate( g );
 
@@ -148,7 +158,7 @@ void FuncDeclNode::translate( Codegen *g ){
 
 	//leave the function
 	g->label( sem_env->funcLabel+"_leave" );
-	t=deleteVars( sem_env );
+	t=deleteVars( sem_env, g );
 	if( g->debug ) t=d_new TNode( IR_SEQ,call( "__bbDebugLeave" ),t );
 	g->leave( t,sem_type->params->size()*4 );
 }

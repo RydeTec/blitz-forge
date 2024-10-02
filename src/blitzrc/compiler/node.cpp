@@ -98,9 +98,10 @@ TNode *Node::createVars( Environ *e ){
 ////////////////////////
 // release local vars //
 ////////////////////////
-TNode *Node::deleteVars( Environ *e ){
+TNode *Node::deleteVars( Environ *e, Codegen *g ){
 	TNode *t=0,*l=0,*p,*p1,*p2;
 	for( int k=0;k<e->decls->size();++k ){
+		TNode *rel=0;
 		Decl *d=e->decls->decls[k];
 		Type *type=d->type;
 		string func;
@@ -123,8 +124,34 @@ TNode *Node::deleteVars( Environ *e ){
 				p2=global( v->label );
 			}
 		}
-		if( !func.size() ) continue;
-		p=d_new TNode( IR_SEQ,call( func,p1,p2 ),0 );
+
+		if (type->structType() || type->blitzType()) {
+			string typeName = "";
+
+			if (type->structType()) {
+				typeName = "BBCustom";
+			} else if (type->blitzType()) {
+				BlitzType* ty = type->blitzType();
+				
+				typeName = ty->ident;
+			}
+
+			string lab=genLabel();
+			g->s_data( typeName,lab );
+			rel=call("__bbRelease", mem( local( d->offset ) ), global(lab));
+		} else {
+			if( !func.size() ) continue;
+		}
+
+		if( !func.size() ) {
+			p=d_new TNode( IR_SEQ,rel,0 );
+		} else {
+			p=d_new TNode( IR_SEQ,call( func,p1,p2 ),0 );
+			(l ? l->r : t)=p;
+			l=p;
+			p=d_new TNode( IR_SEQ,rel,0 );
+		}
+		
 		(l ? l->r : t)=p;
 		l=p;
 	}
