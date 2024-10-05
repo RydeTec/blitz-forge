@@ -83,6 +83,7 @@ static BlitzType bbfont( "BBFont" );
 static BlitzType bbstream( "BBStream" );
 static BlitzType bbdir( "BBDir" );
 static BlitzType bbpointer("BBPointer");
+static BlitzType bblist("BBList");
 static BlitzType bbfunction("BBFunction");
 static BlitzType bbthread("BBThread");
 

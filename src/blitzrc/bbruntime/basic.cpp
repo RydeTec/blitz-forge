@@ -14,6 +14,9 @@ static int objCnt;
 //how many objects deleted but not released
 static int unrelObjCnt;
 
+//how many lists have not been deleted
+static int listCnt;
+
 //how many objects to alloc per block
 static const int OBJ_NEW_INC=512;
 
@@ -647,6 +650,8 @@ int _bbRelease(int vPtr, const char *s) {
 				BBObj* obj = static_cast<BBObj*>(objPtr);
 
 				_bbObjDelete(obj);
+			} else if (strcmp(s, "BBList") == 0) {
+				_bbVectorFree(vPtr);
 			}
 		}
 	}
@@ -660,6 +665,122 @@ int _bbReferenceCount(int vPtr) {
 	}
 
 	return reference_map[vPtr];
+}
+
+int _bbNewVector() {
+	std::vector<int>* newVec = new std::vector<int>;
+	++listCnt;
+	return reinterpret_cast<int>(newVec);
+}
+
+void _bbVectorPushBack(int aPtr, int valuePtr) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	vecPtr->push_back(valuePtr);
+}
+
+int _bbVectorBack(int aPtr) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	return static_cast<int>(vecPtr->back());
+}
+
+int _bbVectorFirst(int aPtr) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	return static_cast<int>(vecPtr->front());
+}
+
+int _bbVectorEmpty(int aPtr) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	return vecPtr->empty();
+}
+
+int _bbVectorAt(int aPtr, int idx) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	return static_cast<int>(vecPtr->at(idx));
+}
+
+void _bbVectorRelease(int aPtr, int idx) {
+	int ptr = _bbVectorAt(aPtr, idx);
+	if (ptr != 0) {  // Avoid null pointers
+		void* objPtr = reinterpret_cast<void*>(ptr);
+		
+		// Try to cast to BBObj*
+		BBObj* bbObj = dynamic_cast<BBObj*>(static_cast<BBObj*>(objPtr));
+		
+		if (bbObj != nullptr) {
+			// If successful, it's a BBObj, so release it
+			_bbRelease(ptr, "BBCustom");
+		}
+	}
+}
+
+void _bbVectorClear(int aPtr, int idx) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+
+	// Release all elements in the vector
+	for (int idx = 0; idx < vecPtr->size(); ++idx) {
+		_bbVectorRelease(aPtr, idx);
+	}
+
+	vecPtr->clear();
+}
+
+int _bbVectorSize(int aPtr) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	return vecPtr->size();
+}
+
+void _bbVectorInsert(int aPtr, int idx, int valuePtr) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	vecPtr->insert(vecPtr->begin() + idx, valuePtr);
+}
+
+void _bbVectorRemove(int aPtr, int idx) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	_bbVectorRelease(aPtr, idx);
+	vecPtr->erase(vecPtr->begin() + idx);
+}
+
+void _bbVectorReplace(int aPtr, int idx, int valuePtr) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	_bbVectorRemove(aPtr, idx);
+	_bbVectorInsert(aPtr, idx, valuePtr);
+}
+
+void _bbVectorFree(int aPtr) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	
+	// Release all elements in the vector
+	for (int idx = 0; idx < vecPtr->size(); ++idx) {
+		_bbVectorRelease(aPtr, idx);
+	}
+	
+	vecPtr->clear();
+	delete vecPtr;
+	--listCnt;
+}
+
+int _bbVectorFind(int aPtr, int vPtr) {
+	void* arrayPtr = reinterpret_cast<void*>(aPtr);
+	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	auto it = std::find(vecPtr->begin(), vecPtr->end(), vPtr);
+
+	if (it != vecPtr->end()) {
+		int index = std::distance(vecPtr->begin(), it);
+		return index;
+	}
+
+	return -1;
 }
 
 void _bbSetGC(int enabled) {
@@ -733,9 +854,10 @@ float _bbFPow( float x,float y ){
 }
 
 void bbRuntimeStats(){
-	gx_runtime->debugLog( ("Active strings :"+itoa(stringCnt)).c_str() );
-	gx_runtime->debugLog( ("Active objects :"+itoa(objCnt)).c_str() );
-	gx_runtime->debugLog( ("Unreleased objs:"+itoa(unrelObjCnt)).c_str() );
+	gx_runtime->debugLog( ("Active strings 	:"+itoa(stringCnt)).c_str() );
+	gx_runtime->debugLog( ("Active objects 	:"+itoa(objCnt)).c_str() );
+	gx_runtime->debugLog( ("Unreleased objs	:"+itoa(unrelObjCnt)).c_str() );
+	gx_runtime->debugLog( ("Active lists	:"+itoa(listCnt)).c_str() );
 	/*
 	clog<<"Active strings:"<<stringCnt<<endl;
 	clog<<"Active objects:"<<objCnt<<endl;
@@ -836,6 +958,20 @@ void basic_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym("(BBPointer)Await(BBThread)t_ptr", _bbAwaitAsyncCall<int>);
 	rtSym("%Poll(BBThread)t_ptr", _bbPollAsyncCall<int>);
 	rtSym("(BBThread)AsyncThen(BBThread)t_ptr(BBFunction)f_ptr", _bbAsyncThenCall);
+
+	rtSym("(BBList)CreateList", _bbNewVector);
+	rtSym("ListAdd(BBList)p_ptr(BBPointer)v_ptr", _bbVectorPushBack);
+	rtSym("(BBPointer)ListLast(BBList)a_ptr", _bbVectorBack);
+	rtSym("(BBPointer)ListFirst(BBList)a_ptr", _bbVectorFirst);
+	rtSym("%ListIsEmpty(BBList)a_ptr", _bbVectorEmpty);
+	rtSym("(BBPointer)ListAt(BBList)a_ptr%idx", _bbVectorAt);
+	rtSym("ListClear(BBList)a_ptr", _bbVectorClear);
+	rtSym("%ListSize(BBList)a_ptr", _bbVectorSize);
+	rtSym("ListInsert(BBList)a_ptr%idx(BBPointer)v_ptr", _bbVectorInsert);
+	rtSym("ListRemove(BBList)a_ptr%idx", _bbVectorRemove);
+	rtSym("ListReplace(BBList)a_ptr%idx(BBPointer)v_ptr", _bbVectorReplace);
+	rtSym("%ListFind(BBList)a_ptr(BBPointer)v_ptr", _bbVectorFind);
+	rtSym("FreeList(BBList)", _bbVectorFree);
 
 	rtSym("_bbReference", _bbReference);
 	rtSym("_bbRelease", _bbRelease);

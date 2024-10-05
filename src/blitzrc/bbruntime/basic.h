@@ -151,6 +151,8 @@ T		 _bbAwaitAsyncCall(int threadPtr);
 
 int _bbAsyncThenCall(va_list threadPtr, BBFunction<int> functionPtr);
 
+void _bbVectorFree(int aPtr);
+
 void	 _bbNullObjEx();
 
 void	 _bbRestore( BBData *data );
