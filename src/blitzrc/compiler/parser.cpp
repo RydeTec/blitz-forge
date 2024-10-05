@@ -238,43 +238,50 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 				if (test && scope == STMTS_PROG) ex("Test files cannot construct loops in global scope.");
 				toker->next();
 				a_ptr<ExprNode> expr( parseExpr( false ) );
-				a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK, stmts->localIdents ) );
+				vector<string> loopLocalIdents = stmts->localIdents;  // Copy existing local identifiers
+				a_ptr<StmtSeqNode> loopStmts( parseStmtSeq( STMTS_BLOCK, loopLocalIdents ) );
 				int pos=toker->pos();
 				if( toker->curr()!=WEND ) exp( "'Wend'" );
 				toker->next();
-				result=d_new WhileNode( expr.release(),stmts.release(),pos );
+				stmts->localIdents = loopStmts->localIdents;
+				result=d_new WhileNode( expr.release(),loopStmts.release(),pos );
 			}
 			break;
 		case REPEAT:
 			{
 				if (test && scope == STMTS_PROG) ex("Test files cannot construct loops in global scope.");
 				toker->next();ExprNode *expr=0;
-				a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK, stmts->localIdents ) );
+				vector<string> loopLocalIdents = stmts->localIdents;  // Copy existing local identifiers
+				a_ptr<StmtSeqNode> loopStmts( parseStmtSeq( STMTS_BLOCK, loopLocalIdents ) );
 				int curr=toker->curr();
 				int pos=toker->pos();
 				if( curr!=UNTIL && curr!=FOREVER ) exp( "'Until' or 'Forever'" );
 				toker->next();if( curr==UNTIL ) expr=parseExpr( false );
-				result=d_new RepeatNode( stmts.release(),expr,pos );
+				stmts->localIdents = loopStmts->localIdents;
+				result=d_new RepeatNode( loopStmts.release(),expr,pos );
 			}
 			break;
 		case SELECT:
 			{
 				toker->next();ExprNode *expr=parseExpr( false );
 				a_ptr<SelectNode> selNode( d_new SelectNode( expr ) );
+				vector<string> loopLocalIdents = stmts->localIdents;  // Copy existing local identifiers
 				for(;;){
 					while( isTerm( toker->curr() ) ) toker->next();
 					if( toker->curr()==CASE ){
 						toker->next();
 						a_ptr<ExprSeqNode> exprs( parseExprSeq() );
 						if( !exprs->size() ) exp( "expression sequence" );
-						a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK, stmts->localIdents ) );
-						selNode->push_back( d_new CaseNode( exprs.release(),stmts.release() ) );
+						a_ptr<StmtSeqNode> loopStmts( parseStmtSeq( STMTS_BLOCK, loopLocalIdents ) );
+						stmts->localIdents = loopStmts->localIdents;
+						selNode->push_back( d_new CaseNode( exprs.release(),loopStmts.release() ) );
 						continue;
 					}else if( toker->curr()==DEFAULT ){
 						toker->next();
-						a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK, stmts->localIdents ) );
+						a_ptr<StmtSeqNode> loopStmts( parseStmtSeq( STMTS_BLOCK, loopLocalIdents ) );
+						stmts->localIdents = loopStmts->localIdents;
 						if( toker->curr()!=ENDSELECT ) exp( "'End Select'" );
-						selNode->defStmts=stmts.release();
+						selNode->defStmts=loopStmts.release();
 						break;
 					}else if( toker->curr()==ENDSELECT ){
 						break;
@@ -289,17 +296,18 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			{
 				if (test && scope == STMTS_PROG) ex("Test files cannot construct loops in global scope.");
 				a_ptr<VarNode> var;
-				a_ptr<StmtSeqNode> stmts;
+				vector<string> loopLocalIdents = stmts->localIdents;  // Copy existing local identifiers
 				toker->next();var=parseVar();
 				if( toker->curr()!='=' ) exp( "variable assignment" );
 				if( toker->next()==EACH ){
 					toker->next();
 					string ident=parseIdent();
-					stmts=parseStmtSeq( STMTS_BLOCK, stmts->localIdents );
+					a_ptr<StmtSeqNode> loopStmts( parseStmtSeq( STMTS_BLOCK, loopLocalIdents ) );
+					stmts->localIdents = loopStmts->localIdents;
 					int pos=toker->pos();
 					if( toker->curr()!=NEXT ) exp( "'Next'" );
 					toker->next();
-					result=d_new ForEachNode( var.release(),ident,stmts.release(),pos );
+					result=d_new ForEachNode( var.release(),ident,loopStmts.release(),pos );
 				}else{
 					a_ptr<ExprNode> from,to,step;
 					from=parseExpr( false );
@@ -309,11 +317,12 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 					if( toker->curr()==STEP ){
 						toker->next();step=parseExpr( false );
 					}else step=d_new IntConstNode( 1 );
-					stmts=parseStmtSeq( STMTS_BLOCK, stmts->localIdents );
+					a_ptr<StmtSeqNode> loopStmts( parseStmtSeq( STMTS_BLOCK, loopLocalIdents ) );
+					stmts->localIdents = loopStmts->localIdents;
 					int pos=toker->pos();
 					if( toker->curr()!=NEXT ) exp( "'Next'" );
 					toker->next();
-					result=d_new ForNode( var.release(),from.release(),to.release(),step.release(),stmts.release(),pos );
+					result=d_new ForNode( var.release(),from.release(),to.release(),step.release(),loopStmts.release(),pos );
 				}
 			}
 			break;
@@ -602,17 +611,20 @@ DeclNode *Parser::parseFuncDecl(){
 	string tag=parseTypeTag();
 	if( toker->curr()!='(' ) exp( "'('" );
 	a_ptr<DeclSeqNode> params( d_new DeclSeqNode() );
+
+	vector<string> paramIdents = vector<string>();
 	if( toker->next()!=')' ){
 		for(;;){
 			string tempident;string temptag;
 			params->push_back( parseVarDecl( DECL_PARAM,false,tempident,temptag ) );
+			paramIdents.push_back(tempident);
 			if( toker->curr()!=',' ) break;
 			toker->next();
 		}
 		if( toker->curr()!=')' ) exp( "')'" );
 	}
 	toker->next();
-	a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
+	a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK, paramIdents ) );
 	if( toker->curr()!=ENDFUNCTION ) exp( "'End Function'" );
 
 	StmtNode *ret=d_new ReturnNode(0);ret->pos=toker->pos();
@@ -727,6 +739,8 @@ DeclNode *Parser::parseMethDecl(string structIdent, string methIdent, int pos){
 	if( toker->curr()!='(' ) exp( "'('" );
 	a_ptr<DeclSeqNode> params( d_new DeclSeqNode() );
 
+	vector<string> paramIdents = vector<string>();
+
 	// Implicit self property
 	bool processingSelf = true;
 	toker->inject("self." + structIdent + "=Null,");
@@ -735,6 +749,7 @@ DeclNode *Parser::parseMethDecl(string structIdent, string methIdent, int pos){
 		for(;;){
 			string tempident;string temptag;
 			params->push_back( parseVarDecl( DECL_PARAM,false,tempident,temptag ) );
+			paramIdents.push_back(tempident);
 			if( toker->curr()!=',' ) break;
 			toker->next();
 			if (toker->curr()==')' && processingSelf) break;
@@ -749,7 +764,7 @@ DeclNode *Parser::parseMethDecl(string structIdent, string methIdent, int pos){
 	}
 
 	toker->next();
-	a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
+	a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK, paramIdents ) );
 	if( toker->curr()!=ENDMETHOD ) exp( "'End Method'" );
 
 	StmtNode *ret=d_new ReturnNode(0);ret->pos=toker->pos();
