@@ -131,6 +131,6 @@ Test testEmbeddedLists()
     Local recoveredList.BBList = ListFirst(testArray)
     ListAdd(recoveredList, new DTOTest())
 
-    FreeList(testArray)
     FreeList(testArray2)
+    FreeList(testArray)
 End Test

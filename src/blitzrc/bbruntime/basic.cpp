@@ -677,6 +677,7 @@ void _bbVectorPushBack(int aPtr, int valuePtr) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
 	vecPtr->push_back(valuePtr);
+	_bbReference(valuePtr);
 }
 
 int _bbVectorBack(int aPtr) {
@@ -740,6 +741,7 @@ void _bbVectorInsert(int aPtr, int idx, int valuePtr) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
 	vecPtr->insert(vecPtr->begin() + idx, valuePtr);
+	_bbReference(valuePtr);
 }
 
 void _bbVectorRemove(int aPtr, int idx) {
