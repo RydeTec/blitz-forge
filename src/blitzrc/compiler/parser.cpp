@@ -102,16 +102,21 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 		int nextAssert = toker->findNext(ASSERT);
 		if ((nextAssert > 0 || toker->curr() == ASSERT) && assertText == "") {
 			nextAssert++;
+
+			int pCount = 1;
 			while (nextAssert > 0) {
 				if (assertText != "") assertText += "AND ";
 
 				int tokeCount = nextAssert;
 				while (!isTerm(toker->at(tokeCount))) {
 					if (toker->at(tokeCount) == ASSERT || toker->at(tokeCount) == '(') {
+						if (toker->at(tokeCount) == '(') ++pCount;
 						tokeCount++;
 						continue;
 					}
-					if (toker->at(tokeCount) == ')') break;
+					if (toker->at(tokeCount) == ')') {
+						if (--pCount < 1) break;
+					}
 					assertText += toker->textAt(tokeCount) + " ";
 					tokeCount++;
 				}

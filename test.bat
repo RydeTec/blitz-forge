@@ -10,6 +10,7 @@ set FAILED=0
 
 for /R %%f in (*.bb) do (
     "%BLITZPATH%\bin\blitzcc.exe" -t "%%f" || (echo "%%f failed at least one test" && SET FAILED=1)
+    echo.
 )
 
 cd %ROOTDIR%
