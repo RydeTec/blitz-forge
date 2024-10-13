@@ -12,3 +12,5 @@ bin/runtime.dll
 *.pdb
 
 *.bb_bak1
+
+release/
