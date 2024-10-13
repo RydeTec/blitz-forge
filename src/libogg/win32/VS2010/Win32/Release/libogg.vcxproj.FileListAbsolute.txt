@@ -1,0 +1,3 @@
+C:\Users\dyanr\Downloads\libogg-1.3.5\libogg-1.3.5\win32\VS2015\Win32\Release\libogg.lib
+C:\Users\dyanr\Desktop\blitz-source\libogg\win32\VS2010\Win32\Release\libogg.lib
+C:\Users\dyanr\Desktop\rcce2\compiler\BlitzRC\src\libogg\win32\VS2010\Win32\Release\libogg.lib

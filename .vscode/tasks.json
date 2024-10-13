@@ -1,19 +1,10 @@
 {
     "version": "2.0.0",
-    "inputs": [
-      {
-        "id": "compilerVersion",
-        "type": "pickString",
-        "description": "Select Compiler",
-        "options": ["BlitzRC", "BlitzPlus"],
-        "default": "BlitzRC"
-      }
-    ],
     "tasks": [
         {
             "label": "compile",
             "type": "shell",
-            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -c",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" \"${fileDirname}\" \"${file}\" -c",
             "problemMatcher": [
                 {
                   "pattern": [
@@ -50,7 +41,7 @@
         {
             "label": "debug",
             "type": "shell",
-            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -d",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" \"${fileDirname}\" \"${file}\" -d",
             "problemMatcher": [
                 {
                   "pattern": [
@@ -87,7 +78,7 @@
         {
             "label": "test",
             "type": "shell",
-            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -d -t",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" \"${fileDirname}\" \"${file}\" -d -t",
             "problemMatcher": [
                 {
                   "pattern": [
@@ -124,7 +115,7 @@
         {
             "label": "run",
             "type": "shell",
-            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\"",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" \"${fileDirname}\" \"${file}\"",
             "problemMatcher": [
                 {
                   "pattern": [

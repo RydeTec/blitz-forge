@@ -33,7 +33,7 @@
             "preLaunchTask": "run"
         },
         {
-            "name": "Build All",
+            "name": "Build BlitzForge",
             "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
             "request": "launch",
             "type": "node",
