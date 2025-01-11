@@ -73,6 +73,7 @@ private:
 	vector<Toke> tokes;
 	void nextline();
 	int curr_row,curr_toke;
+	bool in_comment=false;
 
 	int process_injected=0;
 	vector<string> line_cache;

@@ -1,7 +1,16 @@
 Strict
 EnableGC
 
-; This is a test of the Test block
+; This is a test semicolon line comment
+// This is a test line comment
+
+/**
+ * This is a test of the block comment
+ * @param test
+ * @return test
+ * @author test
+ * @deprecated 
+**/
 
 Test test1()
     ;Assert(0) ; Fail
