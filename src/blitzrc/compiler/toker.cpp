@@ -205,6 +205,9 @@ void Toker::nextline(){
 			continue;
 		}
 		if( c==';' || (c=='/' && line[k+1]=='/' ) ){
+			if (c==';') {
+				cout << "WARNING (" << curr_row << ", " << k << "): Semicolon line comments are deprecated. Use '//' instead." << endl;
+			}
 			for( ++k;line[k]!='\n';++k ){}
 			continue;
 		}
