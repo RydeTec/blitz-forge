@@ -44,3 +44,6 @@ Github Discussions: https://github.com/RydeTec/blitz-forge/discussions
 
 ### Visual Studio
 In order to edit and compile the BlitzForge you will need to open their solutions in the community version of Visual Studio https://visualstudio.microsoft.com/
+
+### VS Code
+You can also develop using vscode for both C++ and Blitz. To compile the C++ you can run the compile.bat located in the root directory. In the release version of BlitzForge we include a compiled VS Code extension from [https://github.com/RydeTec/vscode-blitz-forge]. This extension will help with developing in the BlitzForge language in VS Code.
