@@ -22,4 +22,6 @@ xcopy /E /Y /I "%ROOTDIR%\samples" "%ROOTDIR%\release\samples"
 xcopy /E /Y /I "%ROOTDIR%\tutorials" "%ROOTDIR%\release\tutorials"
 xcopy /E /Y /I "%ROOTDIR%\userlibs" "%ROOTDIR%\release\userlibs"
 
+xcopy /E /Y /I "%ROOTDIR%\..\..\extras\vscode-blitz-forge\blitzforge-1.0.0.vsix" "%ROOTDIR%\release\"
+
 endlocal
