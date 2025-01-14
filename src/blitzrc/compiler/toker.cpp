@@ -179,6 +179,7 @@ void Toker::nextline(){
 			originalLine.clear();
 			line.resize(1);line[0]=EOF;
 			tokes.push_back( Toke( EOF,0,1 ) );
+			in_comment=false;
 			return;
 		}
 		getline( in,line ); line+='\n';
@@ -194,7 +195,19 @@ void Toker::nextline(){
 			continue;
 		}
 		if( isspace( c ) ){ ++k;continue; }
-		if( c==';' ){
+		if ((c=='/' && line[k+1]=='*') || in_comment) {
+			in_comment=true;
+			for( ++k;line[k]!='\n';++k ){
+				if (line[k]=='*' && line[k+1]=='/') {
+					in_comment=false;
+				}
+			}
+			continue;
+		}
+		if( c==';' || (c=='/' && line[k+1]=='/' ) ){
+			if (c==';') {
+				cout << "WARNING (" << curr_row << ", " << k << "): Semicolon line comments are deprecated. Use '//' instead." << endl;
+			}
 			for( ++k;line[k]!='\n';++k ){}
 			continue;
 		}
