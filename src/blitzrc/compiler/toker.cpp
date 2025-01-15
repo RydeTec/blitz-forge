@@ -197,17 +197,16 @@ void Toker::nextline(){
 		if( isspace( c ) ){ ++k;continue; }
 		if ((c=='/' && line[k+1]=='*') || in_comment) {
 			in_comment=true;
-			for( ++k;line[k]!='\n';++k ){
+			for( k;line[k]!='\n';++k ){
 				if (line[k]=='*' && line[k+1]=='/') {
 					in_comment=false;
+					k+=2;
+					break;
 				}
 			}
 			continue;
 		}
 		if( c==';' || (c=='/' && line[k+1]=='/' ) ){
-			if (c==';') {
-				cout << "WARNING (" << curr_row << ", " << k << "): Semicolon line comments are deprecated. Use '//' instead." << endl;
-			}
 			for( ++k;line[k]!='\n';++k ){}
 			continue;
 		}
