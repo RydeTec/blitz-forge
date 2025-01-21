@@ -1,0 +1,2 @@
+[resolution]1366x768x32x1
+[resolution]1024x600x32x1
