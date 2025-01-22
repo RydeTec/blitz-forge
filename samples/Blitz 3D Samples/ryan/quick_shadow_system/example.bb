@@ -44,8 +44,8 @@ PositionEntity plane,0,-2,15
 ScaleEntity plane,20,.1,20
 
 SetReceiver(plane)
-EntityTexture cube,LoadTexture("media/wcrate.jpg")
-groundtex = LoadTexture("media/mossyground.bmp")
+EntityTexture cube,LoadTexture("media/Wood.jpg")
+groundtex = LoadTexture("media/Rock.jpg")
 ScaleTexture groundtex,.2,.2
 EntityTexture plane,groundtex
 
