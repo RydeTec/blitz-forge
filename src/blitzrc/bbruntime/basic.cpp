@@ -1,4 +1,3 @@
-
 #include "std.h"
 #include "bbsys.h"
 
@@ -622,6 +621,21 @@ int _bbAsyncThenCall(va_list threadPtr, BBFunction<int> functionPtr) {
 	return _bbAsyncCallFunctionPointer(functionPtr, threadPtr);
 }
 
+void _bbThrow(va_list args) {
+	throw args; // Simply throw the error code as an exception
+}
+
+template<typename T>
+int _bbTryCatch(BBFunction<T> t_ptr, BBFunction<T> c_ptr, va_list args) {
+	try {
+		// Call the try function with the provided arguments
+		return _bbCallFunctionPointer(t_ptr, args);
+	} catch (va_list catch_args) {
+		// Call the catch function with the error code
+		return _bbCallFunctionPointer(c_ptr, catch_args);
+	}
+}
+
 int _bbReference(int vPtr) {
 	if (vPtr == 0) {
 		return 0;
@@ -980,4 +994,7 @@ void basic_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym("%RefCount(BBPointer)v_ptr", _bbReferenceCount);
 
 	rtSym("_bbSetGC", _bbSetGC);
+
+	rtSym("Throw(BBPointer)dto", _bbThrow);
+	rtSym("(BBPointer)TryCatch(BBFunction)t_ptr(BBFunction)c_ptr(BBPointer)dto", _bbTryCatch<int>);
 }
