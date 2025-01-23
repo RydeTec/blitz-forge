@@ -1,0 +1,13 @@
+The skin sdk is a 'tool' the create or edit skins.
+
+The file 'SkinWriter.bb' will scann all the directories of this directory.
+Then the ready skins will be written into ..\Skins\
+So if there is a folder named 'MacOS' in this directory, and you execute
+'Skinwriter.bb', there will be a new file (..\Skins\MacOS.skin)
+To add a new skin, just add a folder into this directory and edit the images
+and the *.ini files. Then, execute the Skinwriter, and the skin (name of the
+dir) will appear in the ..\Skins\ directory.
+
+The meaning of the values such as 'Col_ComboBox_Highlight$' won't be
+explained here. If you really want to edit/create a skin so bad, you may find
+out by trying :)
