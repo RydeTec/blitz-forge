@@ -382,8 +382,10 @@ void ForEachNode::semant( Environ *e ){
 	if( t!=ty ) ex( "Type mismatch" );
 
 	string brk=e->setBreak( sem_brk=genLabel() );
+	string cont=e->setContinue( sem_cont=genLabel() );
 	stmts->semant( e );
 	e->setBreak( brk );
+	e->setContinue( cont );
 }
 
 void ForEachNode::translate( Codegen *g ){
@@ -409,6 +411,7 @@ void ForEachNode::translate( Codegen *g ){
 	stmts->translate( g );
 
 	debug( nextPos,g );
+	g->label( sem_cont );
 	t=jumpt( call( objNext,var->translate( g ) ),_loop );
 	g->code( t );
 

@@ -149,7 +149,7 @@ struct ForEachNode : public StmtNode{
 	VarNode *var;
 	string typeIdent;
 	StmtSeqNode *stmts;
-	string sem_brk;
+	string sem_brk, sem_cont;
 	ForEachNode( VarNode *v,const string &t,StmtSeqNode *s,int np):var(v),typeIdent(t),stmts(s),nextPos(np){}
 	~ForEachNode(){ delete var;delete stmts; }
 	void semant( Environ *e );
