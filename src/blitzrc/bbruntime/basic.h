@@ -151,6 +151,11 @@ T		 _bbAwaitAsyncCall(int threadPtr);
 
 int _bbAsyncThenCall(va_list threadPtr, BBFunction<int> functionPtr);
 
+void 	_bbThrow(va_list args);
+
+template<typename T>
+int 	_bbTryCatch(BBFunction<T> t_ptr, BBFunction<T> c_ptr, va_list args);
+
 void _bbVectorFree(int aPtr);
 
 void	 _bbNullObjEx();
