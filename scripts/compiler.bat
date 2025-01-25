@@ -12,7 +12,6 @@ cd %SRCPATH%
 shift
 shift
 shift
-shift
 
 :: Initialize an empty string to collect the remaining arguments
 set "ARGS="
