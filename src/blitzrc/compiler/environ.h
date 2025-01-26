@@ -1,4 +1,3 @@
-
 /*
 
   An environ represent a stack frame block.
@@ -25,7 +24,7 @@ public:
 	vector<Label*> labels;
 	Environ *globals;
 	Type *returnType;
-	string funcLabel,breakLabel;
+	string funcLabel,breakLabel,continueLabel;
 	list<Environ*> children;		//for delete!
 
 	Environ( const string &f,Type *r,int l,Environ *gs );
@@ -38,6 +37,7 @@ public:
 	Label *insertLabel( const string &s,int def,int src,int sz );
 
 	string setBreak( const string &s );
+	string setContinue( const string &s );
 };
 
 #endif

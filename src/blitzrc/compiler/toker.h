@@ -1,4 +1,3 @@
-
 /*
 
   The Toker converts an inout stream into tokens for use by the parser.
@@ -12,7 +11,7 @@ enum{
 	DIM=0x8000,GOTO,GOSUB,EXIT,RETURN,
 	IF,THEN,ELSE,ENDIF,ELSEIF,
 	WHILE,WEND,
-	FOR,TO,STEP,NEXT,
+	FOR,TO,STEP,NEXT,CONTINUE,
 	FUNCTION,ENDFUNCTION,
 	TYPE,ENDTYPE,EACH,
 	METHOD,ENDMETHOD,

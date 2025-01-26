@@ -1,4 +1,3 @@
-
 #include "std.h"
 #include "nodes.h"
 
@@ -262,6 +261,15 @@ void ExitNode::translate( Codegen *g ){
 	g->code( d_new TNode( IR_JUMP,0,0,sem_brk ) );
 }
 
+void ContinueNode::semant( Environ *e ){
+	sem_cont=e->continueLabel;
+	if( !sem_cont.size() ) ex( "continue must appear inside a loop" );
+}
+
+void ContinueNode::translate( Codegen *g ){
+	g->code( d_new TNode( IR_JUMP,0,0,sem_cont ) );
+}
+
 /////////////////////
 // While statement //
 /////////////////////
@@ -269,8 +277,10 @@ void WhileNode::semant( Environ *e ){
 	expr=expr->semant( e );
 	expr=expr->castTo( Type::int_type,e );
 	string brk=e->setBreak( sem_brk=genLabel() );
+	string cont=e->setContinue( sem_cont=genLabel() );
 	stmts->semant( e );
 	e->setBreak( brk );
+	e->setContinue( cont );
 }
 
 void WhileNode::translate( Codegen *g ){
@@ -282,6 +292,7 @@ void WhileNode::translate( Codegen *g ){
 		g->code( jump( loop ) );
 	}else{
 		string cond=genLabel();
+		g->label( sem_cont );
 		g->code( jump( cond ) );
 		g->label( loop );
 		stmts->translate( g );
@@ -324,6 +335,7 @@ void ForNode::semant( Environ *e ){
 	if( !stepExpr->constNode() ) ex( "Step value must be constant" );
 
 	string brk=e->setBreak( sem_brk=genLabel() );
+	string cont=e->setContinue( sem_cont=genLabel() );
 	stmts->semant( e );
 	e->setBreak( brk );
 }
@@ -343,6 +355,7 @@ void ForNode::translate( Codegen *g ){
 
 	//execute the step part
 	debug( nextPos,g );
+	g->label( sem_cont );
 	int op=ty==Type::int_type ? IR_ADD : IR_FADD;
 	t=d_new TNode( op,var->load( g ),stepExpr->translate( g ) );
 	g->code( var->store( g,t ) );
@@ -369,8 +382,10 @@ void ForEachNode::semant( Environ *e ){
 	if( t!=ty ) ex( "Type mismatch" );
 
 	string brk=e->setBreak( sem_brk=genLabel() );
+	string cont=e->setContinue( sem_cont=genLabel() );
 	stmts->semant( e );
 	e->setBreak( brk );
+	e->setContinue( cont );
 }
 
 void ForEachNode::translate( Codegen *g ){
@@ -396,6 +411,7 @@ void ForEachNode::translate( Codegen *g ){
 	stmts->translate( g );
 
 	debug( nextPos,g );
+	g->label( sem_cont );
 	t=jumpt( call( objNext,var->translate( g ) ),_loop );
 	g->code( t );
 

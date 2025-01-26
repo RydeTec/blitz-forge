@@ -1,4 +1,3 @@
-
 #include "std.h"
 #include "environ.h"
 
@@ -68,4 +67,9 @@ Label *Environ::insertLabel( const string &s,int def,int src,int sz ){
 string Environ::setBreak( const string &s ){
 	string t=breakLabel;
 	breakLabel=s;return t;
+}
+
+string Environ::setContinue( const string &s ){
+	string t=continueLabel;
+	continueLabel=s;return t;
 }

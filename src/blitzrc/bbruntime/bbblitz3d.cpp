@@ -1944,6 +1944,21 @@ float  bbEntityZ( Entity *e,int global ){
 	return global ? e->getWorldPosition().z : e->getLocalPosition().z;
 }
 
+float  bbEntityScaleX( Entity *e,int global ){
+	if (!debugEntity(e,"EntityScaleX")) return 0;
+	return global ? e->getWorldScale().x : e->getLocalScale().x;
+}
+
+float  bbEntityScaleY( Entity *e,int global ){
+	if (!debugEntity(e,"EntityScaleY")) return 0;
+	return global ? e->getWorldScale().y : e->getLocalScale().y;
+}
+
+float  bbEntityScaleZ( Entity *e,int global ){
+	if (!debugEntity(e,"EntityScaleZ")) return 0;
+	return global ? e->getWorldScale().z : e->getLocalScale().z;
+}
+
 float  bbEntityPitch( Entity *e,int global ){
 	if (!debugEntity(e,"EntityPitch")) return 0;
 	return quatPitch( global ? e->getWorldRotation() : e->getLocalRotation() ) * rtod;
@@ -2519,6 +2534,9 @@ void blitz3d_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym( "#EntityX(BBEntity)entity%global=0",bbEntityX );
 	rtSym( "#EntityY(BBEntity)entity%global=0",bbEntityY );
 	rtSym( "#EntityZ(BBEntity)entity%global=0",bbEntityZ );
+	rtSym( "#EntityScaleX(BBEntity)entity%global=0",bbEntityScaleX );
+	rtSym( "#EntityScaleY(BBEntity)entity%global=0",bbEntityScaleY );
+	rtSym( "#EntityScaleZ(BBEntity)entity%global=0",bbEntityScaleZ );
 	rtSym( "#EntityPitch(BBEntity)entity%global=0",bbEntityPitch );
 	rtSym( "#EntityYaw(BBEntity)entity%global=0",bbEntityYaw );
 	rtSym( "#EntityRoll(BBEntity)entity%global=0",bbEntityRoll );
