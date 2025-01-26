@@ -1,4 +1,3 @@
-
 #include "std.h"
 #include <cstdlib>
 #include "parser.h"
@@ -49,6 +48,7 @@ void Parser::ex( const string &s ){
 void Parser::exp( const string &s ){
 	switch( toker->curr() ){
 	case NEXT:ex( "'Next' without 'For'" );
+	case CONTINUE:ex( "'Continue' without 'For'" );
 	case WEND:ex( "'Wend' without 'While'" );
 	case ELSE:case ELSEIF:ex( "'Else' without 'If'" );
 	case ENDIF:ex( "'Endif' without 'If'" );
@@ -329,6 +329,13 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 					toker->next();
 					result=d_new ForNode( var.release(),from.release(),to.release(),step.release(),loopStmts.release(),pos );
 				}
+			}
+			break;
+		case CONTINUE:
+			{
+				toker->next();
+				if (!isTerm(toker->curr())) exp("end-of-line");
+				result=d_new ContinueNode();
 			}
 			break;
 		case EXIT:
