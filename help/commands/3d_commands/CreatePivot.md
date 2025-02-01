@@ -1,0 +1,72 @@
+# CreatePivot ( \[parent\] )
+
+# Parameters
+
+  --------------------------------------------
+  parent (optional) - parent entity of pivot
+  --------------------------------------------
+
+# Description
+
+  -----------------------------------------------------------------------
+  Creates a pivot entity.\
+  \
+  A pivot entity is an invisible point in 3D space that\'s main use is to
+  act as a parent entity to other entities. The pivot can then be used to
+  control lots of entities at once, or act as new centre of rotation for
+  other entities.\
+  \
+  To enforce this relationship; use EntityParent or make use of the
+  optional parent entity parameter available with all entity
+  load/creation commands.\
+  \
+  Indeed, this parameter is also available with the CreatePivot command
+  if you wish for the pivot to have a parent entity itself.
+
+  -----------------------------------------------------------------------
+
+# [Example](../3d_examples/CreatePivot.bb)
+
+  -----------------------------------------------------------------------
+  ; CreatePivot Example\
+  ; \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--\
+  \
+  Graphics3D 640,480\
+  SetBuffer BackBuffer()\
+  \
+  camera=CreateCamera()\
+  PositionEntity camera,0,0,-10\
+  \
+  light=CreateLight()\
+  RotateEntity light,90,0,0\
+  \
+  ; Create pivot. This is invisible.\
+  pivot=CreatePivot()\
+  \
+  ; Create planet (i.e. a sphere). Make the pivot the parent of the
+  planet.\
+  planet=CreateSphere(16,pivot)\
+  \
+  ; Position planet so that it is offset from the pivot\
+  PositionEntity planet,5,0,0\
+  \
+  While Not KeyDown(1)\
+  \
+  ; Turn pivot, thus making planet spin around it\
+  TurnEntity pivot,0,1,0\
+  \
+  RenderWorld\
+  Flip\
+  \
+  Wend\
+  \
+  End
+
+  -----------------------------------------------------------------------
+
+\
+[Index](../index.htm){target="_top"}\
+\
+Click
+[here](http://www.blitzbasic.co.nz/b3ddocs/command.php?name=CreatePivot&ref=comments){target="_blank"}
+to view the latest version of this page online

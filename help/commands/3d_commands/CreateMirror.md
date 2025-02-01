@@ -1,0 +1,88 @@
+# CreateMirror ( \[parent\] )
+
+# Parameters
+
+  ----------------------------------
+  parent - parent entity of mirror
+  ----------------------------------
+
+# Description
+
+  -----------------------------------------------------------------------
+  Creates a mirror entity and returns its handle.\
+  \
+  A mirror entity is basically a flat, infinite \'ground\'. This ground
+  is invisible, except it vertically flips anything above it, below it
+  and vice versa. It is useful for games where you want have the effect
+  of a shiny floor showing a reflection. For a true shiny floor effect,
+  try combining a mirror entity with a textured plane entity that has an
+  alpha level of 0.5.\
+  \
+  The optional parent parameter allows you to specify a parent entity for
+  the mirror so that when the parent is moved the child mirror will move
+  with it. However, this relationship is one way; applying movement
+  commands to the child will not affect the parent.\
+  \
+  Specifying a parent entity will still result in the mirror being
+  created at position 0,0,0 rather than at the parent entity\'s
+  position.\
+  \
+  See also: CreatePlane.
+
+  -----------------------------------------------------------------------
+
+# [Example](../3d_examples/CreateMirror.bb)
+
+  -----------------------------------------------------------------------
+  ; CreateMirror Example\
+  ; \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--\
+  \
+  Graphics3D 640,480\
+  SetBuffer BackBuffer()\
+  \
+  camera=CreateCamera()\
+  PositionEntity camera,0,1,-5\
+  \
+  light=CreateLight()\
+  RotateEntity light,90,0,0\
+  \
+  ; Create cone\
+  cone=CreateCone(32)\
+  PositionEntity cone,0,2,0\
+  \
+  ; Create plane\
+  plane=CreatePlane()\
+  grass_tex=LoadTexture( \"media/chorme-2.bmp\" )\
+  EntityTexture plane,grass_tex\
+  EntityAlpha plane,0.5\
+  \
+  ; Create mirror\
+  mirror=CreateMirror()\
+  \
+  While Not KeyDown( 1 )\
+  \
+  If KeyDown( 203 )=True Then MoveEntity cone,-0.1,0,0\
+  If KeyDown( 205 )=True Then MoveEntity cone,0.1,0,0\
+  If KeyDown( 208 )=True Then MoveEntity cone,0,-0.1,0\
+  If KeyDown( 200 )=True Then MoveEntity cone,0,0.1,0\
+  If KeyDown( 44 )=True Then MoveEntity cone,0,0,-0.1\
+  If KeyDown( 30 )=True Then MoveEntity cone,0,0,0.1\
+  \
+  RenderWorld\
+  \
+  Text 0,0,\"Use cursor/A/Z keys to move cone above infinite mirror\"\
+  \
+  Flip\
+  \
+  Wend\
+  \
+  End
+
+  -----------------------------------------------------------------------
+
+\
+[Index](../index.htm){target="_top"}\
+\
+Click
+[here](http://www.blitzbasic.co.nz/b3ddocs/command.php?name=CreateMirror&ref=comments){target="_blank"}
+to view the latest version of this page online
