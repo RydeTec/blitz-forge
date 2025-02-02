@@ -1,0 +1,30 @@
+---
+description: When working in the BlitzForge language it is important to know how it differs from Blitz3D
+globs: *.bb
+---
+
+# BlitzForge
+
+BlitzForge is a custom fork of the Blitz3D language and compiler made specifically tailored for our main project. Any *.bb files in our projects src\ directory is **not** Blitz3D but instead BlitzForge language files. The [bbruntime.vcxproj](mdc:compiler/BlitzForge/src/blitzrc/bbruntime/bbruntime.vcxproj) project handles most of the language api for BlitzForge, the [blitz.vcxproj](mdc:compiler/BlitzForge/src/blitzrc/blitz/blitz.vcxproj) project is the compiler, the [gxruntime.vcxproj](mdc:compiler/BlitzForge/src/blitzrc/gxruntime/gxruntime.vcxproj) project is our DirectX7 abstraction, and [blitz3d.vcxproj](mdc:compiler/BlitzForge/src/blitzrc/blitz3d/blitz3d.vcxproj) is the main engine.
+
+## Syntax
+
+BlitzForge syntax differs from the Blitz3D syntax in various ways. Here are some of the few:
+
+- Double forward slash comments `//` are allowed and semicolon comments `;` are deprecated.
+- Block comments `/*` are allowed.
+- Tests can be created in BlitzForge as you would a function with `Test` and `End Test` and ran with the `-t` argument in `blitzcc.exe`. Inside tests you can make boolean `Assert` statements which will fail a test if false.
+- BlitzForge uses OpenAl for audio instead of FMod, this has lead to the removal of some music commands which should be replaced with sound commands.
+- Types can have Methods in BlitzForge. There is an implicit `self` available within the method body.
+- Types have implicit constructor Methods called the `create` method. Instead of `new Type` we should always do `new Type()`.
+- Types have inheritance. So `Type SubType.InheritType` would inherit all the fields for SubType. They can also be recast down to inherited types.
+- There is a flag for `Strict` typeing which can be included at the top of every file.
+- There is a new Pointer type which is noted with `@` and any Type or BlitzType can be cast to a Pointer with `Ptr` this helps to pass the type around as an integer and convert it back elsewhere.
+- There is built-in async programming with `FunctionPtr`, `Async` and `Await`. And you can chain async methods with `AsyncThen`.
+- There is a new dynamic list system with various commands like `CreateList`, `ListAt`, `ListSize` and such.
+- There are `TryCatch` and `Throw` functions now which can be used for error management.
+- In loops there is a new `Continue` command to skip to the next loop step early.
+
+## Includes
+
+`Include` statements are now sourced from the root file instead of relative to each individual file. This way Includes work more like namespaces in other programming languages.
