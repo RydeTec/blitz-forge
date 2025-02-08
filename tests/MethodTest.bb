@@ -8,14 +8,37 @@ Type TestStruct
     End Method
 End Type
 
+Type SecondStruct.TestStruct
+
+End Type
+
+Type ThirdStruct.TestStruct
+    Method testMethod(testArg$)
+        self\testVar = "pre" + testArg$
+    End Method
+End Type
+
+Type FourthStruct.ThirdStruct
+
+End Type
+
+
 Test testMutation()
     Local testType1.TestStruct = new TestStruct()
 
-    testType1\testVar = "initial set"
+    testType1\testVar = "foo"
 
-    TestStruct::testMethod(testType1,"reset")
+    // You can either call the method as static
+    TestStruct::testMethod(testType1,"bar")
 
-    Assert(testType1\testVar = "reset")
+    Assert(testType1\testVar = "bar")
+
+    testType1\testVar = "fizz"
+
+    // Or dynamic
+    testType1\testMethod("buzz")
+
+    Assert(testType1\testVar = "buzz")
 End Test
 
 ;Function m::func() ; This fails so that we don't overwrite exisiting type functions
@@ -42,4 +65,28 @@ End Test
 Test testNullTypeAccess()
     Local instance.TestStruct = Null
     ;instance\testVar = "" ; Fail
+End Test
+
+Test testMethodInherit()
+    local instance.SecondStruct = new SecondStruct()
+    instance\testVar = "foo"
+    instance\testMethod("bar")
+
+    Assert(instance\testVar = "bar")
+End Test
+
+Test testMethodOverride()
+    local instance.ThirdStruct = new ThirdStruct()
+    instance\testVar = "foo"
+    instance\testMethod("bar")
+
+    Assert(instance\testVar = "prebar")
+End Test
+
+Test testMethodOverrideInherit()
+    local instance.FourthStruct = new FourthStruct()
+    instance\testVar = "foo"
+    instance\testMethod("bar")
+
+    Assert(instance\testVar = "prebar")
 End Test

@@ -220,15 +220,58 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 					if (strictMode && toker->curr()=='\\') {
 						isField = true;
 					}
-					a_ptr<VarNode> var( parseVar( ident,tag ) );
-					if (strictMode) {
-						bool isGlobal = std::find(globalIdents.begin(), globalIdents.end(), ident) != globalIdents.end();
-						bool isLocal = std::find(stmts->localIdents.begin(), stmts->localIdents.end(), ident) != stmts->localIdents.end();
-						if (!isField && !isGlobal && !isLocal) ex( ident + " assignment should start with local, global or const modifier");
+					
+					if( toker->lookAhead(2)=='(' && isField) {
+						toker->next();
+						// Must be a method call// Get method name
+						string methodName = toker->text();
+						toker->next();
+
+						ExprSeqNode *exprs;
+						if (toker->curr()!='(') exp( "variable assignment or method call" );
+
+						int nest=1,k;
+						for( k=1;;++k ){
+							int c=toker->lookAhead( k );
+							if( isTerm( c ) ) ex( "Mismatched brackets" );
+							else if( c=='(' ) ++nest;
+							else if( c==')' && !--nest ) break;
+						}
+
+						if( isTerm( toker->lookAhead( ++k ) ) ){
+							// Use the ident as the first argument of the call
+							string selfInject = ident;
+							if( toker->lookAhead(1)!=')' ) selfInject = ident + ',';
+
+							toker->inject(selfInject);
+							toker->next();
+
+							exprs=parseExprSeq();
+							if( toker->curr()!=')' ) exp( "')'" );
+							toker->next();
+						}else {
+							// Use the ident as the first argument of the call
+							string selfInject = ident;
+							if( toker->lookAhead(1)!=')' ) selfInject = ident + ',';
+
+							toker->inject(selfInject);
+							toker->next();
+
+							exprs=parseExprSeq();
+						}
+						CallNode *call=d_new CallNode( "::" + methodName,tag,exprs );
+						result=d_new ExprStmtNode( call );
+					} else {
+						a_ptr<VarNode> var( parseVar( ident,tag ) );
+						if (strictMode) {
+							bool isGlobal = std::find(globalIdents.begin(), globalIdents.end(), ident) != globalIdents.end();
+							bool isLocal = std::find(stmts->localIdents.begin(), stmts->localIdents.end(), ident) != stmts->localIdents.end();
+							if (!isField && !isGlobal && !isLocal) ex( ident + " assignment should start with local, global or const modifier");
+						}
+						if (toker->curr()!='=') exp( "variable assignment" );
+						toker->next();ExprNode *expr=parseExpr( false );
+						result=d_new AssNode( var.release(),expr );
 					}
-					if( toker->curr()!='=' ) exp( "variable assignment" );
-					toker->next();ExprNode *expr=parseExpr( false );
-					result=d_new AssNode( var.release(),expr );
 				}
 			}
 			break;

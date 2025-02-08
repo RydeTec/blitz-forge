@@ -191,11 +191,57 @@ void ExprSeqNode::castTo( Type *t,Environ *e ){
 ///////////////////
 ExprNode *CallNode::semant( Environ *e ){
 	Type *t=e->findType( tag );
-	sem_decl=e->findFunc( ident );
-	if( !sem_decl || !(sem_decl->kind & DECL_FUNC) ) ex( "Function '"+ident+"' not found" );
+	exprs->semant( e );
+
+	// Check if the function was a method call
+	if (ident.find("::") == 0) {
+		// Get the first argument of the call
+		ExprNode* node = exprs->exprs.at(0);
+		VarExprNode* varNode = dynamic_cast<VarExprNode*>(node);
+		if (varNode) {
+			// Get the struct type of the first argument
+			StructType* structType = varNode->var->sem_type->structType();
+			if (structType) {
+				// If the struct type is found, check if the method exists in the struct
+				string originalTypeIdent = structType->ident;
+				string typeIdent = originalTypeIdent;
+
+				// If it doesn't exist, check if it exists in the next struct in the inheritance hierarchy
+				while (!e->findFunc(typeIdent + ident)) {
+					// If the struct type is the last in the hierarchy, break
+					if (structType->tag.empty()) {
+						break;
+					}
+
+					// Get the next struct in the hierarchy
+					Type* type = e->findType(structType->tag);
+					if (type == nullptr || type == 0 || !type->structType()) {
+						break;
+					}
+					structType = type->structType();
+					typeIdent = structType->ident;
+				}
+
+				// If method was found in the inheritance hierarchy, set the ident to the static type ident + method name
+				sem_decl=e->findFunc( typeIdent + ident );
+				if (!sem_decl || !(sem_decl->kind & DECL_FUNC)) {
+					ex("Method '" + ident.substr(2) + "' not found in '" + originalTypeIdent + "'");
+				}
+				ident = typeIdent + ident;
+			} else {
+				ex("Unable to resolve method '" + ident.substr(2) + "'");
+			}
+		} else {
+			ex("Unable to resolve method '" + ident.substr(2) + "'");
+		}
+	} else {
+		sem_decl=e->findFunc( ident );
+		if( !sem_decl || !(sem_decl->kind & DECL_FUNC) ) ex( "Function '"+ident+"' not found" );
+	}
+	
 	FuncType *f=sem_decl->type->funcType();
 	if( t && f->returnType!=t ) ex( "incorrect function return type" );
-	exprs->semant( e );
+	
 	exprs->castTo( f->params,e,f->cfunc );
 	sem_type=f->returnType;
 	return this;
