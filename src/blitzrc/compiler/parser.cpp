@@ -141,6 +141,15 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			assertText = "";
 		}
 
+		// Inject Base Class
+		if (scope == STMTS_PROG && stmts->size() == 0 && toker->curr() != USESTRICTTYPING && !addedBaseClass ) {
+			toker->rollback();
+			toker->inject("Type BaseClass\nEnd Type");
+			toker->next();
+			addedBaseClass = true;
+		}
+
+
 		// Disable garbage collection if not in strict mode and strict is not set
 		if (scope == STMTS_PROG && stmts->size() == 0 && toker->curr() != USESTRICTTYPING && !strictMode && collectingGarbage) {
 			cout << "Included file is not Strict, disabling GC globally" << endl;
@@ -713,6 +722,11 @@ DeclNode *Parser::parseStructDecl(DeclSeqNode* &funcs){
 	string className = toker->originalTextAt(toker->current_toke());
 	string ident=parseIdent();
 	string tag=parseTypeTag();
+
+	// If tag is not set, set it to baseclass
+	if (tag.empty() && ident != "baseclass") tag = "baseclass";
+	if (className.empty() && ident == "baseclass") className = "BaseClass";
+
 	while( toker->curr()=='\n' ) toker->next();
 	a_ptr<DeclSeqNode> fields( d_new DeclSeqNode() );
 
