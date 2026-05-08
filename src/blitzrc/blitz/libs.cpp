@@ -153,6 +153,31 @@ static const char *linkRuntime(){
 
 static set<string> _ulibkws;
 
+static string normalizeUserLibDir( const string &path ){
+	string t=bfplatform::normalizeIncludeCachePath( path );
+	while( t.size()>1 && (t[t.size()-1]=='/' || t[t.size()-1]=='\\') ) t.resize( t.size()-1 );
+	return t;
+}
+
+static vector<string> userLibSearchPaths( const char *cwd ){
+	vector<string> paths;
+	paths.push_back( home+"/../userlibs/" );
+	if( cwd && *cwd ){
+		paths.push_back( string(cwd)+"/userlibs/" );
+		paths.push_back( string(cwd)+"/../userlibs/" );
+	}
+
+	set<string> seen;
+	vector<string> unique;
+
+	for( vector<string>::const_iterator it=paths.begin();it!=paths.end();++it ){
+		string normalized=normalizeUserLibDir( *it );
+		if( seen.insert( normalized ).second ) unique.push_back( *it );
+	}
+
+	return unique;
+}
+
 static const char *loadUserLib(const string& path, const string &userlib ){
 	
 	string t=path+userlib;
@@ -259,13 +284,9 @@ static const char *linkUserLibs(const char* cwd){
 
 	_ulibkws.clear();
 
-	const string roots[3]={
-		home + "/../userlibs/",
-		string(cwd) + "/userlibs/",
-		string(cwd) + "/../userlibs/",
-	};
-	for( int i=0;i<3;++i ){
-		if( const char *err=scanUserLibDir( roots[i] ) ){
+	const vector<string> paths=userLibSearchPaths( cwd );
+	for( vector<string>::const_iterator it=paths.begin();it!=paths.end();++it ){
+		if( const char *err=scanUserLibDir( *it ) ){
 			_ulibkws.clear();
 			return err;
 		}
