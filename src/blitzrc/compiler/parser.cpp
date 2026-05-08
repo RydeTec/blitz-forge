@@ -141,8 +141,9 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			assertText = "";
 		}
 
-		// Inject Base Class
-		if (scope == STMTS_PROG && stmts->size() == 0 && toker->curr() != USESTRICTTYPING && !addedBaseClass ) {
+		// Inject the implicit BaseClass once the file is past an optional leading Strict.
+		if (scope == STMTS_PROG && toker->curr() != EOF && !addedBaseClass &&
+			!(stmts->size() == 0 && toker->curr() == USESTRICTTYPING)) {
 			toker->rollback();
 			toker->inject("Type BaseClass\nEnd Type");
 			toker->next();
