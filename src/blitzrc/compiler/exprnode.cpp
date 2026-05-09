@@ -338,6 +338,7 @@ TNode *FloatConstNode::translate( Codegen *g ){
 
 int FloatConstNode::intValue(){
 	float flt=value;
+#if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
 	int temp;
 	_control87( _RC_NEAR|_PC_24|_EM_INVALID|_EM_ZERODIVIDE|_EM_OVERFLOW|_EM_UNDERFLOW|_EM_INEXACT|_EM_DENORMAL,0xfffff );
 	_asm{
@@ -346,6 +347,13 @@ int FloatConstNode::intValue(){
 	}
 	_control87( _CW_DEFAULT,0xfffff );
 	return temp;
+#else
+	// Portable equivalent of x87 `fistp` under round-to-nearest-even, which is
+	// the default IEEE-754 rounding mode on every host we currently target.
+	// `lrintf` returns the rounded value as `long` using the active rounding
+	// mode; downcasting to int reproduces the legacy 32-bit behavior.
+	return (int)lrintf( flt );
+#endif
 }
 
 float FloatConstNode::floatValue(){
