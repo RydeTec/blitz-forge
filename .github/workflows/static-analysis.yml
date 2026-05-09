@@ -1,0 +1,49 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-yaml:
+    name: Workflow YAML lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: python3 -m pip install --user yamllint
+
+      - name: Lint workflow files
+        run: >
+          ~/.local/bin/yamllint
+          -d '{extends: default, rules: {document-start: disable, truthy: disable, line-length: disable}}'
+          .github/workflows/*.yml
+
+  actionlint:
+    name: GitHub Actions lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install actionlint
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest
+
+      - name: Lint GitHub Actions workflows
+        run: ./actionlint -color
