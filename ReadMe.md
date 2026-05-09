@@ -20,7 +20,7 @@
 [![Discussions](https://img.shields.io/github/discussions/RydeTec/blitz-forge)](https://github.com/RydeTec/blitz-forge/discussions)
 
 [![Windows x86_64](https://img.shields.io/badge/Windows-x86__64-0078D4?logo=windows&logoColor=white)](#install)
-[![macOS arm64](https://img.shields.io/badge/macOS-arm64-000000?logo=apple&logoColor=white)](#install)
+[![macOS arm64 alpha](https://img.shields.io/badge/macOS-arm64%20(alpha)-orange?logo=apple&logoColor=white)](#macos-apple-silicon--alpha)
 [![Language: C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)](#build-from-source)
 [![Build: CMake + Ninja](https://img.shields.io/badge/build-CMake%20%2B%20Ninja-064F8C)](#build-from-source)
 
@@ -42,7 +42,7 @@
 Blitz3D and BlitzBasic shaped a generation of indie game development. The original toolchain was tied to 32-bit Windows, closed-source, and frozen. BlitzForge is the alternative:
 
 - **Open source.** MIT-style community development, public CI, no surprise binaries.
-- **Cross-platform.** First-class Windows x86_64 *and* macOS Apple Silicon (arm64) support — same source, native code on both.
+- **Cross-platform foundations.** Native Windows x86_64 is the stable target today. A macOS Apple Silicon (arm64) port is in **alpha** — same source tree, ARM64 codegen, Cocoa runtime backend — but not yet ready to ship games on. See [macOS (Apple Silicon) — alpha](#macos-apple-silicon--alpha) below.
 - **Modern build system.** CMake + Ninja, optional static analysis, GitHub Actions CI on every push.
 - **Drop-in compatible.** Existing `.bb` source compiles. Existing `.decls` userlibs work. We do not break your games.
 - **Production-tested.** Powers [RealmCrafter: Community Edition](https://github.com/RydeTec/rcce2) and the games built on top of it.
@@ -51,7 +51,7 @@ Blitz3D and BlitzBasic shaped a generation of indie game development. The origin
 |---|---|---|
 | License | Proprietary | **Open source** |
 | Source | Closed | **Public** |
-| Platforms | Windows 32-bit | **Windows x86_64 + macOS arm64** |
+| Platforms | Windows 32-bit | **Windows x86_64 (stable) + macOS arm64 (alpha)** |
 | Build system | Custom / VS6-era | **CMake + Ninja** |
 | Codegen targets | x86 only | **x86 + ARM64** |
 | CI | None | **GitHub Actions: build, test, lint** |
@@ -72,10 +72,10 @@ Blitz3D and BlitzBasic shaped a generation of indie game development. The origin
 
 Download a pre-built release for your platform from [**Releases**](https://github.com/RydeTec/blitz-forge/releases/latest).
 
-| Platform | Artifact |
-|---|---|
-| Windows x86_64 | `blitzforge-windows-x64.zip` |
-| macOS arm64 | `blitzforge-macos-arm64.zip` |
+| Platform | Artifact | Status |
+|---|---|---|
+| Windows x86_64 | `blitzforge-windows-x64.zip` | Stable |
+| macOS arm64 | `blitzforge-macos-arm64.zip` | **Alpha — not for production use** |
 
 Each release ships:
 
@@ -126,15 +126,19 @@ test.bat
 publish.bat
 ```
 
-### macOS (Apple Silicon)
+### macOS (Apple Silicon) — alpha
+
+> **Status: alpha. Not stable. Expect breakage.**
+>
+> Native macOS arm64 support is under active development. The compiler (`blitzcc`) builds and can target `macos-arm64`, but the runtime execution path is incomplete and many language and standard-library features are not yet wired up. **Do not rely on it for shipping work.** Issues and feedback specific to the macOS port are welcome on the [issue tracker](https://github.com/RydeTec/blitz-forge/issues).
 
 ```bash
 git clone https://github.com/RydeTec/blitz-forge.git
 cd blitz-forge
-./scripts/bootstrap_macos.sh    # one-time: installs/locates toolchain
-./compile.sh
-./test.sh
-./publish.sh
+./scripts/bootstrap_macos.sh    # one-time: installs cmake/ninja/llvm and runtime deps via Homebrew
+./compile.sh                    # builds bin/blitzcc, bin/runtime.dylib, bin/linker.dylib
+./test.sh                       # runs tests/*.bb against -target macos-arm64
+./publish.sh                    # produce a redistributable archive
 ```
 
 Build artifacts land in [`bin/`](bin) and a redistributable archive in `release/`.
@@ -180,22 +184,6 @@ The full test suite also runs as a local pre-commit hook. **Tests must pass to c
 - **[Tutorials](tutorials)** — guided walkthroughs.
 - **[Samples](samples)** and **[Games](games)** — runnable example projects.
 - **[VS Code extension](https://github.com/RydeTec/vscode-blitz-forge)** — syntax highlighting, build, debug, test.
-
-### macOS (arm64) — Alpha
-
-> **Status: alpha. Not stable. Expect breakage.**
->
-> Native macOS arm64 support is under active development. The compiler (`blitzcc`) builds and can target `macos-arm64`, but the runtime execution path is incomplete and many language and standard-library features are not yet wired up. Do not rely on it for shipping work.
-
-On macOS you can build using the CMake-based toolchain:
-
-```bash
-./scripts/bootstrap_macos.sh   # one-time: installs cmake/ninja/llvm and runtime deps via Homebrew
-./compile.sh                   # builds bin/blitzcc, bin/runtime.dylib, bin/linker.dylib
-./test.sh                      # runs tests/*.bb against -target macos-arm64
-```
-
-Issues and feedback specific to the macOS port are welcome on the [issue tracker](https://github.com/RydeTec/blitz-forge/issues).
 
 ## Contribute
 
