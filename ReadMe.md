@@ -8,6 +8,22 @@ You can download a pre-compiled version of the latest release here: https://gith
 ## Compile
 Once you download the repository you can compile easily by running the `compile.bat` batch file.
 
+### macOS (arm64) — Alpha
+
+> **Status: alpha. Not stable. Expect breakage.**
+>
+> Native macOS arm64 support is under active development. The compiler (`blitzcc`) builds and can target `macos-arm64`, but the runtime execution path is incomplete and many language and standard-library features are not yet wired up. Do not rely on it for shipping work.
+
+On macOS you can build using the CMake-based toolchain:
+
+```bash
+./scripts/bootstrap_macos.sh   # one-time: installs cmake/ninja/llvm and runtime deps via Homebrew
+./compile.sh                   # builds bin/blitzcc, bin/runtime.dylib, bin/linker.dylib
+./test.sh                      # runs tests/*.bb against -target macos-arm64
+```
+
+Issues and feedback specific to the macOS port are welcome on the [issue tracker](https://github.com/RydeTec/blitz-forge/issues).
+
 ## Contribute
 
 ### Users
