@@ -26,7 +26,6 @@ private:
 	bool test;
 	bool strictMode = false;
 	bool collectingGarbage = false;
-	bool addedBaseClass = false;
 
 	DeclSeqNode *consts;
 	DeclSeqNode *structs;

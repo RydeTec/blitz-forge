@@ -43,6 +43,8 @@ struct BBType{
 struct BBObjType : public BBType{
 	BBObj used,free;
 	int fieldCnt;
+	BBObjType *superType;
+	const char *typeName;
 	BBType *fieldTypes[1];
 };
 
@@ -136,6 +138,8 @@ int		 _bbObjCompare( BBObj *o1,BBObj *o2 );
 BBStr *	 _bbObjToStr( BBObj *obj );
 int		 _bbObjToHandle( BBObj *obj );
 BBObj *	 _bbObjFromHandle( int handle,BBObjType *type );
+BBObj *	 _bbObjFromPointer( int ptr,BBObjType *type );
+BBStr *	 _bbObjTypeName( int ptr );
 int		 _bbAssertTrue(int t);
 
 int		 _bbGetFunctionPointer();

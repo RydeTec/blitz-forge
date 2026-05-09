@@ -66,7 +66,10 @@ Test testFindingClassName()
     Local testType1.SecondType = new SecondType()
     testType1\secondTestVar = "testValue"
     Local typePointer@ = Ptr(testType1)
-    Local castedType.BaseClass = typePointer
+    Assert(ObjectType(typePointer) = "SecondType")
+    Local castedType.TestType = Object.TestType(typePointer)
+    Local wrongType.ConstructType = Object.ConstructType(typePointer)
+    Assert(wrongType = Null)
     Assert(castedType\className = "SecondType")
     Local recastedType.SecondType = Recast.SecondType(castedType)
     Assert(recastedType\secondTestVar = "testValue")

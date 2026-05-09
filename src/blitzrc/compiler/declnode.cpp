@@ -202,6 +202,15 @@ void StructDeclNode::translate( Codegen *g ){
 	//number of fields
 	g->i_data( sem_type->fields->size() );
 
+	//runtime type metadata
+	if( sem_type->tag.size() ){
+		g->p_data( "_t"+sem_type->tag );
+	}else{
+		g->i_data( 0 );
+	}
+	string type_name=genLabel();
+	g->p_data( type_name );
+
 	//type of each field
 	for( k=0;k<sem_type->fields->size();++k ){
 		Decl *field=sem_type->fields->decls[k];
@@ -215,6 +224,7 @@ void StructDeclNode::translate( Codegen *g ){
 		else if( VectorType *v=type->vectorType() ) t=v->label;
 		g->p_data( t );
 	}
+	g->s_data( ident,type_name );
 }
 
 //////////////////////

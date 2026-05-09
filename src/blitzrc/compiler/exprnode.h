@@ -188,7 +188,8 @@ struct BeforeNode : public ExprNode{
 struct ObjectCastNode : public ExprNode{
 	ExprNode *expr;
 	string type_ident;
-	ObjectCastNode( ExprNode *e,const string &t ):expr(e),type_ident(t){}
+	bool from_pointer;
+	ObjectCastNode( ExprNode *e,const string &t ):expr(e),type_ident(t),from_pointer(false){}
 	~ObjectCastNode(){ delete expr; }
 	ExprNode *semant( Environ *e );
 	TNode *translate( Codegen *g );
