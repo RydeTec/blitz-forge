@@ -1,4 +1,5 @@
 #include "../linker/linker.h"
+#include "../config/config.h"
 
 #include <cstdint>
 #include <cstdlib>
