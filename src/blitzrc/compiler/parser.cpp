@@ -713,7 +713,6 @@ DeclNode *Parser::parseStructDecl(DeclSeqNode* &funcs){
 	string className = toker->originalTextAt(toker->current_toke());
 	string ident=parseIdent();
 	string tag=parseTypeTag();
-
 	while( toker->curr()=='\n' ) toker->next();
 	a_ptr<DeclSeqNode> fields( d_new DeclSeqNode() );
 
