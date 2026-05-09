@@ -9,8 +9,14 @@ bin/linker.dll
 
 bin/runtime.dll
 
+bin/blitzcc
+bin/linker.dylib
+bin/runtime.dylib
+
 *.pdb
 
 *.bb_bak1
 
 release/
+
+build/
