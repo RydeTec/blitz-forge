@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/blitzforge-logo.png" alt="BlitzForge" width="160" onerror="this.style.display='none'"/>
+<img src="docs/assets/blitzforge-logo.png" alt="BlitzForge" width="240"/>
 
 # BlitzForge
 
