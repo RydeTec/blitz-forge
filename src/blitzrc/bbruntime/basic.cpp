@@ -544,7 +544,11 @@ BBObj *_bbObjFromPointer( int ptr,BBObjType *type ){
 BBStr *_bbObjTypeName( int ptr ){
 	if( !ptr ) return d_new BBStr( "" );
 	BBObj *obj=(BBObj*)ptr;
-	if( !obj || !obj->fields || !obj->type || !obj->type->typeName ) return d_new BBStr( "" );
+	if( !obj || !obj->fields || !obj->type ) return d_new BBStr( "" );
+	if( obj->type->fieldCnt>0 && obj->type->fieldTypes[0]->type==BBTYPE_STR && obj->fields[0].STR ){
+		return d_new BBStr( *obj->fields[0].STR );
+	}
+	if( !obj->type->typeName ) return d_new BBStr( "" );
 	return d_new BBStr( obj->type->typeName );
 }
 
