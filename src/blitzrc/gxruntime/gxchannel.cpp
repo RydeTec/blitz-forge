@@ -8,6 +8,8 @@
 #include <ogg/ogg.h>
 #include <vorbis/vorbisfile.h>
 
+#include <chrono>
+
 gxChannel::~gxChannel(){
 }
 
@@ -233,7 +235,7 @@ static void streamOGG(const std::string &filename,bool isPanned,
 		if (!isPlaying) {
 			break;
 		}
-		std::this_thread::sleep_for(80ms);
+		std::this_thread::sleep_for(std::chrono::milliseconds(80));
 		ALint buffersFree = 0;
 		alGetSourcei(source,AL_BUFFERS_PROCESSED,&buffersFree);
 
@@ -325,14 +327,14 @@ static void streamOGG(const std::string &filename,bool isPanned,
 				if (finalData) break; //we can't fill any more buffers
 
 				alGetSourcei(source,AL_BUFFERS_PROCESSED,&buffersFree);
-				std::this_thread::sleep_for(10ms);
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
 			}
 		}
 		if (finalData) {
 			ALint playing = 0;
 			alGetSourcei(source,AL_SOURCE_STATE,&playing);
 			while (playing==AL_PLAYING || playing==AL_PAUSED) {
-				std::this_thread::sleep_for(80ms);
+				std::this_thread::sleep_for(std::chrono::milliseconds(80));
 				alGetSourcei(source,AL_SOURCE_STATE,&playing);
 				if (seek>=0.f) {
 					break;
@@ -393,4 +395,3 @@ StreamChannel::~StreamChannel() {
 		thread = 0;
 	}
 }
-
