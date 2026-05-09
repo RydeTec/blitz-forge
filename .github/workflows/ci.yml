@@ -37,3 +37,43 @@ jobs:
       - name: Run test suite
         shell: cmd
         run: test.bat
+
+  build-macos:
+    # macOS build is alpha: runtime execution is not yet wired through, so
+    # this job intentionally validates only that `compile.sh` produces a
+    # working `blitzcc` plus the macOS `linker.dylib`/`runtime.dylib` stubs,
+    # and that the existing Blitz test suite still parses, semants,
+    # translates, and assembles cleanly through the compiler front-end.
+    name: Build (macOS arm64, alpha)
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: brew install cmake ninja
+
+      - name: Build blitzcc, linker.dylib, runtime.dylib
+        run: ./compile.sh
+
+      - name: Verify build artifacts
+        run: |
+          set -euo pipefail
+          test -x bin/blitzcc
+          test -f bin/linker.dylib
+          test -f bin/runtime.dylib
+          file bin/blitzcc
+          ./bin/blitzcc -v
+
+      - name: Compile-only smoke across the Blitz test suite
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in tests/*.bb; do
+            if ! ./bin/blitzcc -c +q "$f" >/dev/null; then
+              echo "FAIL $f"
+              fail=1
+            fi
+          done
+          test "$fail" -eq 0
