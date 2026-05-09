@@ -61,3 +61,16 @@ Test testConstructorArgs()
 
     ; You can still call new ConstructType without () to skip construction and set the Type up the old way
 End Test
+
+Test testFindingClassName()
+    Local testType1.SecondType = new SecondType()
+    testType1\secondTestVar = "testValue"
+    Local typePointer@ = Ptr(testType1)
+    Assert(ObjectType(typePointer) = "SecondType")
+    Local castedType.TestType = Object.TestType(typePointer)
+    Local wrongType.ConstructType = Object.ConstructType(typePointer)
+    Assert(wrongType = Null)
+    Assert(castedType\className = "SecondType")
+    Local recastedType.SecondType = Recast.SecondType(castedType)
+    Assert(recastedType\secondTestVar = "testValue")
+End Test

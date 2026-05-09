@@ -505,6 +505,19 @@ BBStr *_bbObjToStr( BBObj *obj ){
 	return s;
 }
 
+static bool _bbObjIsKindOf( BBObjType *actual,BBObjType *expected ){
+	while( actual ){
+		if( actual==expected ) return true;
+		actual=actual->superType;
+	}
+	return false;
+}
+
+static BBObj *_bbObjCast( BBObj *obj,BBObjType *type ){
+	if( !obj || !obj->fields ) return 0;
+	return _bbObjIsKindOf( obj->type,type ) ? obj : 0;
+}
+
 int _bbObjToHandle( BBObj *obj ){
 	if( !obj || !obj->fields ) { return 0; }
 	map<BBObj*,int>::const_iterator it=object_map.find( obj );
@@ -519,7 +532,20 @@ BBObj *_bbObjFromHandle( int handle,BBObjType *type ){
 	map<int,BBObj*>::const_iterator it=handle_map.find( handle );
 	if( it==handle_map.end() ) return 0;
 	BBObj *obj=it->second;
-	return obj->type==type ? obj : 0;
+	return _bbObjCast( obj,type );
+}
+
+BBObj *_bbObjFromPointer( int ptr,BBObjType *type ){
+	if( !ptr ) return 0;
+	BBObj *obj=(BBObj*)ptr;
+	return _bbObjCast( obj,type );
+}
+
+BBStr *_bbObjTypeName( int ptr ){
+	if( !ptr ) return d_new BBStr( "" );
+	BBObj *obj=(BBObj*)ptr;
+	if( !obj || !obj->fields || !obj->type || !obj->type->typeName ) return d_new BBStr( "" );
+	return d_new BBStr( obj->type->typeName );
 }
 
 int _bbAssertTrue(int t) {
@@ -946,6 +972,8 @@ void basic_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym( "_bbObjToStr",_bbObjToStr );
 	rtSym( "_bbObjToHandle",_bbObjToHandle );
 	rtSym( "_bbObjFromHandle",_bbObjFromHandle );
+	rtSym( "_bbObjFromPointer",_bbObjFromPointer );
+	rtSym( "$ObjectType(BBPointer)v_ptr",_bbObjTypeName );
 	rtSym("_bbAssertTrue", _bbAssertTrue);
 	rtSym("_bbGetFunctionPointer", _bbGetFunctionPointer);
 	rtSym("_bbCallFunctionPointer", _bbCallFunctionPointer<int>);
