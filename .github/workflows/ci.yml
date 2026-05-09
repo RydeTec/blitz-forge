@@ -17,21 +17,20 @@ permissions:
 
 jobs:
   build-and-test:
-    name: Build and test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
+    name: Build and test
+    runs-on: windows-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
       - name: Build compiler
-        run: ./compile.sh
+        shell: cmd
+        run: compile.bat
 
       - name: Run test suite
-        run: ./test.sh
+        shell: cmd
+        run: test.bat
