@@ -1,0 +1,94 @@
+name: Static Analysis
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Lint shell entrypoints
+        run: shellcheck compile.sh publish.sh test.sh scripts/bootstrap_macos.sh
+
+  clang-tidy:
+    name: Clang-Tidy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install analysis dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang-tidy ninja-build
+
+      - name: Generate compilation database
+        run: >
+          cmake
+          -S .
+          -B build/ci-analysis
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          -DBLITZFORGE_BUILD_RUNTIME=OFF
+
+      - name: Run clang-tidy
+        run: |
+          python3 - <<'PY'
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          build_dir = Path("build/ci-analysis")
+          compile_commands = build_dir / "compile_commands.json"
+          entries = json.loads(compile_commands.read_text())
+
+          files = []
+          seen = set()
+          for entry in entries:
+              path = Path(entry["file"]).resolve()
+              if "src/blitzrc/" not in path.as_posix():
+                  continue
+              if path.suffix not in {".c", ".cc", ".cpp", ".cxx", ".mm"}:
+                  continue
+              if path in seen:
+                  continue
+              seen.add(path)
+              files.append(str(path))
+
+          if not files:
+              print("No C/C++ source files found in compile_commands.json.", file=sys.stderr)
+              sys.exit(1)
+
+          cmd = [
+              "clang-tidy",
+              f"-p={build_dir}",
+              "--quiet",
+              "--warnings-as-errors=*",
+              "-checks=-*,clang-analyzer-*",
+              *files,
+          ]
+
+          print("Running:", " ".join(cmd))
+          raise SystemExit(subprocess.run(cmd, check=False).returncode)
+          PY
