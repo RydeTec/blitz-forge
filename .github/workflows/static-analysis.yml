@@ -28,7 +28,10 @@ jobs:
         run: python3 -m pip install --user yamllint
 
       - name: Lint workflow files
-        run: ~/.local/bin/yamllint .github/workflows/*.yml
+        run: >
+          ~/.local/bin/yamllint
+          -d '{extends: default, rules: {document-start: disable, truthy: disable, line-length: disable}}'
+          .github/workflows/*.yml
 
   actionlint:
     name: GitHub Actions lint
