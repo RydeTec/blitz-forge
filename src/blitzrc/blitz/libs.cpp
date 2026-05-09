@@ -2,6 +2,7 @@
 #include "libs.h"
 #include "../stdutil/platform.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 

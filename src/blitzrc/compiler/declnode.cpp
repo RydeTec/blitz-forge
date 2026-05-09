@@ -2,6 +2,8 @@
 #include "std.h"
 #include "nodes.h"
 
+#include <cstdint>
+
 //////////////////////////////
 // Sequence of declarations //
 //////////////////////////////
