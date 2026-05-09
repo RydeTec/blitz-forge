@@ -56,6 +56,34 @@ struct Rdat{
 	int addr,size,cp,zero;
 };
 
+struct IcoHeader{
+	unsigned short reserved;
+	unsigned short type;
+	unsigned short count;
+};
+
+struct IcoEntry{
+	unsigned char width;
+	unsigned char height;
+	unsigned char color_count;
+	unsigned char reserved;
+	unsigned short planes;
+	unsigned short bit_count;
+	unsigned int bytes_in_res;
+	unsigned int image_offset;
+};
+
+struct GroupIconEntry{
+	unsigned char width;
+	unsigned char height;
+	unsigned char color_count;
+	unsigned char reserved;
+	unsigned short planes;
+	unsigned short bit_count;
+	unsigned int bytes_in_res;
+	unsigned short resource_id;
+};
+
 #pragma pack( pop )
 
 struct Rsrc{
@@ -237,6 +265,95 @@ static Rsrc *findRsrc( int type,int id,int lang ){
 	return findRsrc( lang,r );
 }
 
+static bool replaceRsrcData( Rsrc *r,const void *data,int data_sz ){
+	if( !r || !data || data_sz<0 ) return false;
+	delete[] (char*)r->data;
+	r->data_sz=data_sz;
+	r->data=d_new char[data_sz];
+	memcpy( r->data,data,data_sz );
+	return true;
+}
+
+static bool readFileData( const char *file,vector<char> &data ){
+	ifstream in( file,ios_base::binary|ios_base::ate );
+	if( !in.is_open() ) return false;
+
+	streamoff sz=in.tellg();
+	if( sz<0 ) return false;
+
+	data.resize( (size_t)sz );
+	in.seekg( 0,ios_base::beg );
+
+	if( !data.empty() && !in.read( &data[0],data.size() ) ) return false;
+	return true;
+}
+
+static int iconDim( unsigned char dim ){
+	return dim ? dim : 256;
+}
+
+static int bestIcoEntry( const vector<char> &ico_data,const IcoHeader *header,const IcoEntry *entries ){
+	int best_index=-1;
+	long best_score=-1;
+
+	for( int k=0;k<header->count;++k ){
+		const IcoEntry &entry=entries[k];
+		if( !entry.bytes_in_res ) continue;
+		size_t image_end=(size_t)entry.image_offset + (size_t)entry.bytes_in_res;
+		if( image_end>ico_data.size() ) continue;
+
+		int width=iconDim( entry.width );
+		int height=iconDim( entry.height );
+		int bit_count=entry.bit_count ? entry.bit_count : 32;
+		long score=(long)width * (long)height * 256L + (long)bit_count * 1024L + (long)entry.bytes_in_res;
+		if( score>best_score ){
+			best_score=score;
+			best_index=k;
+		}
+	}
+
+	return best_index;
+}
+
+static bool buildGroupIconData( const char *ico_file,unsigned short resource_id,vector<char> &group_data,vector<char> &icon_data ){
+	vector<char> ico_data;
+	if( !readFileData( ico_file,ico_data ) ) return false;
+	if( ico_data.size()<sizeof(IcoHeader) ) return false;
+
+	const IcoHeader *header=(const IcoHeader*)&ico_data[0];
+	if( header->reserved!=0 || header->type!=1 || !header->count ) return false;
+
+	size_t dir_size=sizeof(IcoHeader) + sizeof(IcoEntry) * header->count;
+	if( ico_data.size()<dir_size ) return false;
+
+	const IcoEntry *entries=(const IcoEntry*)( &ico_data[sizeof(IcoHeader)] );
+	int best_index=bestIcoEntry( ico_data,header,entries );
+	if( best_index<0 ) return false;
+
+	const IcoEntry &entry=entries[best_index];
+	if( !entry.bytes_in_res ) return false;
+	size_t image_end=(size_t)entry.image_offset + (size_t)entry.bytes_in_res;
+	icon_data.assign( ico_data.begin()+entry.image_offset,ico_data.begin()+image_end );
+
+	group_data.resize( sizeof(IcoHeader) + sizeof(GroupIconEntry) );
+	IcoHeader *group_header=(IcoHeader*)&group_data[0];
+	group_header->reserved=0;
+	group_header->type=1;
+	group_header->count=1;
+
+	GroupIconEntry *group_entry=(GroupIconEntry*)( &group_data[sizeof(IcoHeader)] );
+	group_entry->width=entry.width;
+	group_entry->height=entry.height;
+	group_entry->color_count=entry.color_count;
+	group_entry->reserved=0;
+	group_entry->planes=entry.planes;
+	group_entry->bit_count=entry.bit_count;
+	group_entry->bytes_in_res=entry.bytes_in_res;
+	group_entry->resource_id=resource_id;
+
+	return true;
+}
+
 static void loadImage( istream &in ){
 
 	int k;
@@ -346,6 +463,60 @@ bool replaceRsrc( int type,int id,int lang,void *data,int data_sz ){
 	return false;
 }
 
+bool replaceIconRsrc( int group_id,int lang,const char *ico_file ){
+	if( !img_file || !ico_file || !ico_file[0] ) return false;
+
+	enum{
+		RT_ICON_ID=3,
+		RT_GROUP_ICON_ID=14
+	};
+
+	for( int k=0;k<(int)sections.size();++k ){
+		Section *s=sections[k];
+		if( strcmp( s->sect.name,".rsrc" ) ) continue;
+
+		openRsrcTree( s );
+
+		Rsrc *group=findRsrc( RT_GROUP_ICON_ID,group_id,lang );
+		if( !group || group->data_sz<(int)(sizeof(IcoHeader)+sizeof(GroupIconEntry)) ){
+			closeRsrcTree( s );
+			return false;
+		}
+
+		IcoHeader *group_header=(IcoHeader*)group->data;
+		if( group_header->reserved!=0 || group_header->type!=1 || !group_header->count ){
+			closeRsrcTree( s );
+			return false;
+		}
+
+		int group_size=sizeof(IcoHeader) + sizeof(GroupIconEntry) * group_header->count;
+		if( group->data_sz<group_size ){
+			closeRsrcTree( s );
+			return false;
+		}
+
+		GroupIconEntry *group_entry=(GroupIconEntry*)((char*)group->data + sizeof(IcoHeader));
+		Rsrc *icon=findRsrc( RT_ICON_ID,group_entry->resource_id,lang );
+		if( !icon ){
+			closeRsrcTree( s );
+			return false;
+		}
+
+		vector<char> group_data,icon_data;
+		if( !buildGroupIconData( ico_file,group_entry->resource_id,group_data,icon_data ) ){
+			closeRsrcTree( s );
+			return false;
+		}
+
+		bool ok=replaceRsrcData( icon,&icon_data[0],icon_data.size() ) &&
+			replaceRsrcData( group,&group_data[0],group_data.size() );
+		closeRsrcTree( s );
+		return ok;
+	}
+
+	return false;
+}
+
 void closeImage(){
 	if( !img_file ) return;
 
@@ -362,4 +533,3 @@ void closeImage(){
 }
 
 #endif
-

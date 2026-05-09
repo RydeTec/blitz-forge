@@ -5,6 +5,7 @@
 bool openImage( const char *img );
 bool makeExe( int entry );
 bool replaceRsrc( int type,int id,int land,void *data,int data_sz );
+bool replaceIconRsrc( int group_id,int lang,const char *ico_file );
 void closeImage();
 
 #endif
