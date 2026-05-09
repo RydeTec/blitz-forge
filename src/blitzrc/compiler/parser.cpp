@@ -1,6 +1,7 @@
 #include "std.h"
 #include <cstdlib>
 #include "parser.h"
+#include "../stdutil/platform.h"
 
 #ifdef DEMO
 static const int TEXTLIMIT=16384;
@@ -157,10 +158,13 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 				string inc=toker->text();toker->next();
 				inc=inc.substr( 1,inc.size()-2 );
 
-				//WIN32 KLUDGE//
-				char buff[MAX_PATH],*p;
-				if( GetFullPathName( inc.c_str(),MAX_PATH,buff,&p ) ) inc=buff;
-				inc=tolower(inc);
+				// Normalize the include path so logically identical paths are
+				// recognized as duplicates regardless of casing, separator
+				// style, or relative-vs-absolute form. Case folding is only
+				// applied on hosts whose filesystems are case-insensitive
+				// (Windows); on macOS / Linux we preserve the original casing
+				// so case-sensitive lookups continue to work.
+				inc=bfplatform::normalizeIncludeCachePath(inc);
 
 				if( included.find( inc )!=included.end() ) break;
 
