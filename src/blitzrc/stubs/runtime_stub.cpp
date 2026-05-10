@@ -1,11 +1,17 @@
 #include "../bbruntime_dll/bbruntime_dll.h"
 #include "../debugger/debugger.h"
 
+#include <cstdio>
 #include <set>
 #include <string>
 #include <vector>
 
 using namespace std;
+
+// Sentinel printed by the stub runtime on macOS to advertise that native
+// execution is not yet implemented. Test harnesses look for this prefix to
+// distinguish "alpha gap" from a real failure. Keep the prefix stable.
+#define BF_STUB_RUNTIME_SENTINEL "BlitzForge stub runtime: native execution is not yet implemented (macOS arm64 alpha)."
 
 namespace {
 
@@ -100,7 +106,11 @@ void Runtime::execute( void (*pc)(),const char *args,Debugger *dbg,bool test ){
 	(void)pc;
 	(void)args;
 	(void)test;
-	if( dbg ) dbg->debugMsg( "Runtime execution is not yet supported for native macOS arm64 builds.",true );
+	// Always announce the gap so callers (test harnesses, CI logs, end users)
+	// can tell a stub runtime apart from a real runtime that produced no
+	// output. The debugger callback is also notified when present.
+	fprintf( stderr, "%s\n", BF_STUB_RUNTIME_SENTINEL );
+	if( dbg ) dbg->debugMsg( BF_STUB_RUNTIME_SENTINEL,true );
 	testFailed=true;
 }
 
