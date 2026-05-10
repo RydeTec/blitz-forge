@@ -137,7 +137,7 @@ git clone https://github.com/RydeTec/blitz-forge.git
 cd blitz-forge
 ./scripts/bootstrap_macos.sh    # one-time: installs cmake/ninja/llvm and runtime deps via Homebrew
 ./compile.sh                    # builds bin/blitzcc, bin/runtime.dylib, bin/linker.dylib
-./test.sh                       # runs tests/*.bb against -target macos-arm64
+./test.sh                       # compile-validates tests/*.bb against -target macos-arm64 (execution is still stubbed)
 ./publish.sh                    # produce a redistributable archive
 ```
 
