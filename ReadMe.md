@@ -143,6 +143,8 @@ cd blitz-forge
 
 Build artifacts land in [`bin/`](bin) and a redistributable archive in `release/`.
 
+The compiler accepts an explicit `-target` flag (`host`, `windows-x86`, or `macos-arm64`). On macOS hosts, `host` and `macos-arm64` are equivalent; cross-compiling to a foreign target is rejected up-front rather than producing a broken artifact. Until a native macOS runtime is wired up, `./test.sh` validates the full compile/translate/assemble pipeline and explicitly **skips** the in-process execution smoke with a clear "alpha stub runtime" notice — so a stub runtime can never be silently mistaken for a working one.
+
 ## Repository layout
 
 ```
