@@ -1,7 +1,10 @@
 
 #include "libs.h"
+#include "../stdutil/platform.h"
 
-#include <windows.h>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
 
 int bcc_ver;
 int lnk_ver;
@@ -17,7 +20,7 @@ Environ *runtimeEnviron;
 vector<string> keyWords;
 vector<UserFunc> userFuncs;
 
-static HMODULE linkerHMOD,runtimeHMOD;
+static bfplatform::SharedLibHandle linkerHMOD,runtimeHMOD;
 
 static Type *typeof( const string &s,int &pos ){
 	char c = s[pos];
@@ -240,77 +243,63 @@ static const char *loadUserLib(const string& path, const string &userlib ){
 	return 0;
 }
 
+static const char *scanUserLibDir( const string &path ){
+	const std::vector<std::string> entries=bfplatform::listFilesWithExtension( path,".decls" );
+	for( size_t i=0;i<entries.size();++i ){
+		if( const char *err=loadUserLib( path,entries[i] ) ){
+			static char buf[256];
+			snprintf( buf,sizeof(buf),"Error in userlib '%s' - %s",entries[i].c_str(),err );
+			return buf;
+		}
+	}
+	return 0;
+}
+
 static const char *linkUserLibs(const char* cwd){
 
 	_ulibkws.clear();
 
-	WIN32_FIND_DATA fd;
-
-	string path = home + "/../userlibs/";
-	HANDLE h=FindFirstFile( (path + "*.decls").c_str(),&fd );
-
-	const char *err=0;
-
-	int searchStep = 0;
-	do{
-		if (h != INVALID_HANDLE_VALUE) {
-			if (err = loadUserLib(path, fd.cFileName)) {
-				static char buf[64];
-				sprintf_s(buf, "Error in userlib '%s' - %s", fd.cFileName, err);
-				err = buf; break;
-			}
+	const string roots[3]={
+		home + "/../userlibs/",
+		string(cwd) + "/userlibs/",
+		string(cwd) + "/../userlibs/",
+	};
+	for( int i=0;i<3;++i ){
+		if( const char *err=scanUserLibDir( roots[i] ) ){
+			_ulibkws.clear();
+			return err;
 		}
-
-		if (h == INVALID_HANDLE_VALUE || !FindNextFile(h, &fd)) {
-			FindClose(h);
-			searchStep++;
-
-			if (searchStep == 1) {
-				path = string(cwd) + "/userlibs/";
-				h = FindFirstFile((path + "*.decls").c_str(), &fd);
-			}
-
-			if (searchStep == 2) {
-				path = string(cwd) + "/../userlibs/";
-				h = FindFirstFile((path + "*.decls").c_str(), &fd);
-			}
-		}
-
-	}while( searchStep < 3 );
+	}
 
 	_ulibkws.clear();
 
-	return err;
+	return 0;
 }
 
 static string getAppDir(){
-	char buff[MAX_PATH];
-	if( GetModuleFileName( 0,buff,MAX_PATH ) ){
-		string t=buff;
-		int n=t.find_last_of( '\\' );
-		if( n!=string::npos ) t=t.substr( 0,n );
-		return t;
-	}
-	return "";
+	return bfplatform::executableDirectory();
 }
 
 const char *openLibs(){
 	home=getAppDir();
 
-	linkerHMOD=LoadLibrary( (home+"\\linker.dll").c_str() );
-	if( !linkerHMOD ) return "Unable to open linker.dll";
-	
+	const string linkerName=bfplatform::sharedLibraryFileName( "linker" );
+	const string runtimeName=bfplatform::sharedLibraryFileName( "runtime" );
+
+	linkerHMOD=bfplatform::loadSharedLibrary( bfplatform::joinPath(home,linkerName) );
+	if( !linkerHMOD ) return "Unable to open linker library";
+
 	typedef Linker *(_cdecl*GetLinker)();
-	GetLinker gl=(GetLinker)GetProcAddress( linkerHMOD,"linkerGetLinker" );
-	if( !gl ) return "Error in linker.dll";
+	GetLinker gl=(GetLinker)bfplatform::loadSymbol( linkerHMOD,"linkerGetLinker" );
+	if( !gl ) return "Error in linker library";
 	linkerLib=gl();
-	
-	runtimeHMOD=LoadLibrary( (home+"\\runtime.dll").c_str() );
-	if( !runtimeHMOD ) return "Unable to open runtime.dll";
-	
+
+	runtimeHMOD=bfplatform::loadSharedLibrary( bfplatform::joinPath(home,runtimeName) );
+	if( !runtimeHMOD ) return "Unable to open runtime library";
+
 	typedef Runtime *(_cdecl*GetRuntime)();
-	GetRuntime gr=(GetRuntime)GetProcAddress( runtimeHMOD,"runtimeGetRuntime" );
-	if( !gr ) return "Error in runtime.dll";
+	GetRuntime gr=(GetRuntime)bfplatform::loadSymbol( runtimeHMOD,"runtimeGetRuntime" );
+	if( !gr ) return "Error in runtime library";
 	runtimeLib=gr();
 	
 	bcc_ver=VERSION;
@@ -320,8 +309,8 @@ const char *openLibs(){
 	if( (lnk_ver>>16)!=(bcc_ver>>16) ||
 		(run_ver>>16)!=(bcc_ver>>16) ||
 		(lnk_ver>>16)!=(bcc_ver>>16) ) return "Library version error";
-	
-	runtimeLib->startup( GetModuleHandle(0) );
+
+	runtimeLib->startup( bfplatform::currentModuleHandle() );
 	
 	runtimeModule=linkerLib->createModule();
 	runtimeEnviron=d_new Environ( "",Type::int_type,0,0 );
@@ -346,8 +335,8 @@ void closeLibs(){
 	delete runtimeEnviron;
 	if( linkerLib ) linkerLib->deleteModule( runtimeModule );
 	if( runtimeLib ) runtimeLib->shutdown();
-	if( runtimeHMOD ) FreeLibrary( runtimeHMOD );
-	if( linkerHMOD ) FreeLibrary( linkerHMOD );
+	if( runtimeHMOD ) bfplatform::closeSharedLibrary( runtimeHMOD );
+	if( linkerHMOD ) bfplatform::closeSharedLibrary( linkerHMOD );
 
 	runtimeEnviron=0;
 	linkerLib=0;

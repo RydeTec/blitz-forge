@@ -1,12 +1,72 @@
 
 #include "stdutil.h"
+#include "platform.h"
 
 #include <set>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 using namespace std;
+
+namespace {
+
+// Portable replacement for the MSVC `_itoa_s` helper. Always writes a
+// null-terminated decimal representation of `value` (base 10 only) and never
+// overruns `bufSize`.
+void portable_itoa10( int value, char *buf, size_t bufSize ){
+	snprintf( buf, bufSize, "%d", value );
+}
+
+// Portable equivalent of `_ecvt_s` — produces a string of `digits` digits
+// representing `value`, with `*dec` set to the decimal-point position relative
+// to the start of the digit string and `*sign` set when `value` is negative.
+// The output string is always null-terminated.
+//
+// Implemented using `snprintf` with `%e` so it works on every host without
+// depending on the deprecated POSIX `ecvt` routine.
+void portable_ecvt( char *buf, size_t bufSize, double value, int digits, int *dec, int *sign ){
+	if( bufSize==0 ) return;
+	buf[0]=0;
+	*dec=0;
+	*sign=0;
+	if( digits<1 ) digits=1;
+
+	char tmp[64];
+	snprintf( tmp,sizeof(tmp),"%.*e",digits-1,value );
+
+	size_t i=0;
+	if( tmp[i]=='-' ){ *sign=1; ++i; }
+	else if( tmp[i]=='+' ){ ++i; }
+
+	size_t o=0;
+	bool sawDot=false;
+	while( tmp[i] && tmp[i]!='e' && tmp[i]!='E' && o+1<bufSize ){
+		if( tmp[i]=='.' ){ sawDot=true; ++i; continue; }
+		buf[o++]=tmp[i++];
+	}
+	buf[o]=0;
+	(void)sawDot;
+
+	if( tmp[i]=='e' || tmp[i]=='E' ){
+		int exp=atoi( &tmp[i+1] );
+		*dec=exp+1;
+	}
+}
+
+// Portable equivalent of `_gcvt_s` using `%g` formatting.
+void portable_gcvt( char *buf, size_t bufSize, double value, int digits ){
+	if( bufSize==0 ) return;
+	if( digits<1 ) digits=1;
+	snprintf( buf,bufSize,"%.*g",digits,value );
+}
+
+} // namespace
 
 #ifdef MEMDEBUG
 
@@ -144,7 +204,7 @@ double atof( const string &s ){
 }
 
 string itoa( int n ){
-	char buff[32];_itoa_s( n,buff,(size_t)32,10 );
+	char buff[32];portable_itoa10( n,buff,sizeof(buff) );
 	return string( buff );
 }
 
@@ -203,13 +263,13 @@ string ftoa( float n ){
 
 
 		char * tmp=new char[64];
-		errno_t err=_ecvt_s(tmp, 64, n, digits, &dec, &sign);
+		portable_ecvt(tmp, 64, n, digits, &dec, &sign);
 		t = tmp;
 		delete[] tmp;
 
 		if ( dec <= eNeg + 1 || dec > ePos ){
 
-			_gcvt_s(buffer, 50, n, digits);
+			portable_gcvt(buffer, 50, n, digits);
 
 
 			t = buffer;
@@ -305,23 +365,21 @@ string toupper( const string &s ){
 }
 
 string fullfilename( const string &t ){
-	char buff[MAX_PATH+1],*p;
-	GetFullPathName( t.c_str(),MAX_PATH,buff,&p );
-	return string(buff);
+	return bfplatform::absolutePath( t );
 }
 
 string filenamepath( const string &t ){
-	char buff[MAX_PATH+1],*p;
-	GetFullPathName( t.c_str(),MAX_PATH,buff,&p );
-	if( !p ) return "";
-	*p=0;return string(buff);
+	const string full=bfplatform::absolutePath( t );
+	const size_t slash=full.find_last_of( "/\\" );
+	if( slash==string::npos ) return "";
+	return full.substr( 0,slash+1 );
 }
 
 string filenamefile( const string &t ){
-	char buff[MAX_PATH+1],*p;
-	GetFullPathName( t.c_str(),MAX_PATH,buff,&p );
-	if( !p ) return "";
-	return string( p );
+	const string full=bfplatform::absolutePath( t );
+	const size_t slash=full.find_last_of( "/\\" );
+	if( slash==string::npos ) return full;
+	return full.substr( slash+1 );
 }
 
 std::string ltrim(const std::string &s) {
@@ -352,7 +410,9 @@ const int MIN_SIZE=256;
 qstreambuf::qstreambuf(){
 	buf=d_new char[MIN_SIZE];
 	setg( buf,buf,buf );
-	setp( buf,buf,buf+MIN_SIZE );
+	// Standard `setp` takes (pbase, epptr); pptr starts at pbase, which is what
+	// the legacy three-argument MSVC extension would have set.
+	setp( buf,buf+MIN_SIZE );
 }
 
 qstreambuf::~qstreambuf(){
@@ -386,7 +446,7 @@ qstreambuf::int_type qstreambuf::overflow( qstreambuf::int_type c ){
 		memcpy( n_buf,gptr(),sz );
 		delete buf;buf=n_buf;
 		setg( buf,buf,buf+sz );
-		setp( buf+sz,buf+sz,buf+n_sz );
+		setp( buf+sz,buf+n_sz );
 	}
 
 	*pptr()=traits_type::to_char_type( c );

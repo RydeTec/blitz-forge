@@ -2,6 +2,8 @@
 #ifndef LINKER_H
 #define LINKER_H
 
+#include "../stdutil/bf_export.h"
+
 class Module{
 public:
 	virtual ~Module(){}
@@ -30,6 +32,6 @@ public:
 	virtual void deleteModule( Module *mod );
 };
 
-extern "C" _declspec(dllexport) Linker * _cdecl linkerGetLinker();
+extern "C" BF_DLLEXPORT Linker * BF_CDECL linkerGetLinker();
 
 #endif

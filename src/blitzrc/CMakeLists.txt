@@ -92,14 +92,19 @@ if(APPLE AND BLITZFORGE_BUILD_RUNTIME)
     LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
   )
 
+  # The native Win32 linker (`linker/linker.cpp` + `linker_dll/linker_dll.cpp`)
+  # uses Win32 PE/COFF helpers and `DllMain`, neither of which exist on macOS.
+  # The macOS `linker.dylib` is built from the stub linker, which advertises
+  # the Linker/Module surface compiler-side parsing requires while delegating
+  # actual executable creation to a clang stub at link time.
   add_library(linker SHARED
-    linker/linker.cpp
-    linker_dll/linker_dll.cpp
+    stubs/linker_stub.cpp
   )
   target_include_directories(linker PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/linker
     ${CMAKE_CURRENT_SOURCE_DIR}/config
+    ${CMAKE_CURRENT_SOURCE_DIR}/stdutil
   )
   target_compile_definitions(linker PRIVATE BF_PLATFORM_POSIX=1)
   set_target_properties(linker PROPERTIES

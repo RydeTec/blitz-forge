@@ -41,14 +41,12 @@ static void freeReg( int n ){
 static void pushReg( int n ){
 	frameSize+=4;
 	if( frameSize>maxFrameSize ) maxFrameSize=frameSize;
-	char buff[32];_itoa_s( frameSize,buff,32,10 );
-	string s="\tmov\t[ebp-";s+=buff;s+="],";s+=regs[n];s+='\n';
+	string s="\tmov\t[ebp-";s+=itoa(frameSize);s+="],";s+=regs[n];s+='\n';
 	codeFrags.push_back( s );
 }
 
 static void popReg( int n ){
-	char buff[32];_itoa_s( frameSize,buff,32,10 );
-	string s="\tmov\t";s+=regs[n];s+=",[ebp-";s+=buff;s+="]\n";
+	string s="\tmov\t";s+=regs[n];s+=",[ebp-";s+=itoa(frameSize);s+="]\n";
 	codeFrags.push_back( s );
 	frameSize-=4;
 }
@@ -252,14 +250,12 @@ void Codegen_x86::label( const string &l ){
 }
 
 void Codegen_x86::align_data( int n ){
-	char buff[32];_itoa_s( n,buff,32,10 );
-	dataFrags.push_back( string( "\t.align\t" )+buff+'\n' );
+	dataFrags.push_back( string( "\t.align\t" )+itoa(n)+'\n' );
 }
 
 void Codegen_x86::i_data( int i,const string &l ){
 	if( l.size() ) dataFrags.push_back( l );
-	char buff[32];_itoa_s( i,buff,32,10 );
-	dataFrags.push_back( string( "\t.dd\t" )+buff+'\n' );
+	dataFrags.push_back( string( "\t.dd\t" )+itoa(i)+'\n' );
 }
 
 void Codegen_x86::s_data( const string &s,const string &l ){

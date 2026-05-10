@@ -6,6 +6,12 @@
 
 namespace {
 
+// AArch64 always uses 8-byte slots for both integer and pointer arguments.
+// The shared Node abstraction does not yet expose a target slot-size accessor
+// on this branch, so we anchor the value locally in the arm64 backend until
+// that becomes available.
+static constexpr int kArm64SlotSize = 8;
+
 static string itoa_sgn( int n ){
 	if( n==0 ) return "";
 	if( n>0 ) return "+"+itoa(n);
@@ -500,7 +506,7 @@ void Codegen_arm64::emitFloatExpr( TNode *t,const string &dst ){
 }
 
 void Codegen_arm64::emitCall( TNode *t,bool floatRet ){
-	const int slot=Node::slotSize();
+	const int slot=kArm64SlotSize;
 	int argc=t ? (t->iconst/slot) : 0;
 	if( argc<0 ) argc=0;
 	int argArea=0;
@@ -842,9 +848,9 @@ void Codegen_arm64::label( const string &l ){
 
 void Codegen_arm64::i_data( int i,const string &l ){
 	switchSection( SEC_DATA );
-	if( l.size() && Node::slotSize()>=8 ) emitLine( "\t.balign\t8" );
+	if( l.size() && kArm64SlotSize>=8 ) emitLine( "\t.balign\t8" );
 	emitLabelIfNeeded( l );
-	if( Node::slotSize()>=8 ) emitLine( "\t.quad\t"+itoa(i) );
+	if( kArm64SlotSize>=8 ) emitLine( "\t.quad\t"+itoa(i) );
 	else emitLine( "\t.long\t"+itoa(i) );
 }
 
@@ -856,7 +862,7 @@ void Codegen_arm64::s_data( const string &s,const string &l ){
 
 void Codegen_arm64::p_data( const string &p,const string &l ){
 	switchSection( SEC_DATA );
-	if( Node::slotSize()>=8 ) emitLine( "\t.balign\t8" );
+	if( kArm64SlotSize>=8 ) emitLine( "\t.balign\t8" );
 	emitLabelIfNeeded( l );
 	if( p.size() ){
 		emitLine( "\t.quad\t"+mangleSymbol( p ) );
@@ -868,7 +874,7 @@ void Codegen_arm64::p_data( const string &p,const string &l ){
 void Codegen_arm64::align_data( int n ){
 	switchSection( SEC_DATA );
 	int align=n;
-	if( Node::slotSize()>=8 && align<8 ) align=8;
+	if( kArm64SlotSize>=8 && align<8 ) align=8;
 	emitLine( "\t.balign\t"+itoa(align) );
 }
 

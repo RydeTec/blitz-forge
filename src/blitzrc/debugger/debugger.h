@@ -2,6 +2,8 @@
 #ifndef DEBUGGER_H
 #define DEBUGGER_H
 
+#include "../stdutil/bf_export.h"
+
 class Debugger{
 public:
 	bool test;
@@ -16,6 +18,6 @@ public:
 	virtual void debugSys( void *msg )=0;
 };
 
-extern "C" _declspec(dllexport) Debugger * _cdecl debuggerGetDebugger( void *mod,void *env );
+extern "C" BF_DLLEXPORT Debugger * BF_CDECL debuggerGetDebugger( void *mod,void *env );
 
 #endif

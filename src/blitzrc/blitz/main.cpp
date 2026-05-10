@@ -7,6 +7,7 @@
 
 #include "../config/config.h"
 #include "../stdutil/stdutil.h"
+#include "../stdutil/platform.h"
 
 #include <set>
 #include <map>
@@ -204,7 +205,11 @@ int _cdecl main( int argc,char *argv[] ){
 
 	if (debug) {
 		std::ifstream file("ATTACH", std::ifstream::ate | std::ifstream::binary);
-		if (file.good() && file.tellg() > 0) MessageBox(NULL, "Execution is paused so a debugger can be attached if necessary. When you are ready to continue press ok.", "Attach Debugger", MB_OK);
+		if (file.good() && file.tellg() > 0) {
+			bfplatform::showInfoMessage(
+				"Attach Debugger",
+				"Execution is paused so a debugger can be attached if necessary. When you are ready to continue press ok.");
+		}
 	}
 	
 	if( out_file.size() && !in_file.size() ) usageErr();
@@ -245,7 +250,7 @@ int _cdecl main( int argc,char *argv[] ){
 	}
 	
 	if (cwd.size()) {
-		SetCurrentDirectory(cwd.c_str());
+		bfplatform::setCurrentDirectory(cwd);
 	}
 
 	ProgNode *prog=0;
@@ -296,40 +301,44 @@ int _cdecl main( int argc,char *argv[] ){
 
 	if( out_file.size() ){
 		if( !veryquiet ) cout<<"Creating executable \""<<out_file<<"\"..."<<endl;
-		if( !module->createExe( out_file.c_str(),(home+"\\runtime.dll").c_str(), ico_file.c_str() ) ){
+		const string runtimeName=bfplatform::sharedLibraryFileName( "runtime" );
+		const string runtimePath=bfplatform::joinPath( home,runtimeName );
+		if( !module->createExe( out_file.c_str(),runtimePath.c_str(), ico_file.c_str() ) ){
 			err( "Error creating executable" );
 		}
 	}else if( !compileonly ){
 		void *entry=module->link( runtimeModule );
 		if( !entry ) return 0;
-		
-		HMODULE dbgHandle=0;
+
+		bfplatform::SharedLibHandle dbgHandle=0;
 		Debugger *debugger=0;
-		
+
 		if( debug ){
-			dbgHandle=LoadLibrary( (home+"\\debugger.dll").c_str() );
+			const string dbgName=bfplatform::sharedLibraryFileName( "debugger" );
+			const string dbgPath=bfplatform::joinPath( home,dbgName );
+			dbgHandle=bfplatform::loadSharedLibrary( dbgPath );
 			if( dbgHandle ){
 				typedef Debugger *(_cdecl*GetDebugger)( Module*,Environ* );
-				GetDebugger gd=(GetDebugger)GetProcAddress( dbgHandle,"debuggerGetDebugger" );
+				GetDebugger gd=(GetDebugger)bfplatform::loadSymbol( dbgHandle,"debuggerGetDebugger" );
 				if( gd ) debugger=gd( module,qenviron );
 			}
 			if( !debugger ) err( "Error launching debugger" );
 		}
-		
+
 		if( !veryquiet ) cout<<"Executing..."<<endl;
-		
+
 		runtimeLib->execute((void(*)())entry, args.c_str(), debugger, test);
 
 		testFailed = runtimeLib->testFailed;
-		
+
 		if (dbgHandle) {
 			typedef bool(_cdecl* UnloadDebugger)();
-			UnloadDebugger ud = (UnloadDebugger)GetProcAddress(dbgHandle, "debuggerUnload");
+			UnloadDebugger ud = (UnloadDebugger)bfplatform::loadSymbol(dbgHandle, "debuggerUnload");
 			if (ud) ud();
 
-			if (dbgHandle) FreeLibrary(dbgHandle);
+			bfplatform::closeSharedLibrary(dbgHandle);
 		}
-		
+
 	}
 	
 	delete module;

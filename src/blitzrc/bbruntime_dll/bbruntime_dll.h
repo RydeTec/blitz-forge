@@ -4,7 +4,16 @@
 #ifndef BBRUNTIME_DLL_H
 #define BBRUNTIME_DLL_H
 
+#include "../stdutil/bf_export.h"
+
+#ifdef _WIN32
 #include <windows.h>
+#else
+// On non-Windows hosts the runtime/host backend supplies a portable opaque
+// instance handle. Provide a matching typedef so legacy signatures continue
+// to type-check without depending on the Win32 headers.
+typedef void *HINSTANCE;
+#endif
 
 #include "../stdutil/stdutil.h"
 
@@ -27,6 +36,6 @@ public:
 	virtual void execute( void (*pc)(),const char *args,Debugger *dbg, bool test );
 };
 
-extern "C" _declspec(dllexport) Runtime * _cdecl runtimeGetRuntime();
+extern "C" BF_DLLEXPORT Runtime * BF_CDECL runtimeGetRuntime();
 
 #endif

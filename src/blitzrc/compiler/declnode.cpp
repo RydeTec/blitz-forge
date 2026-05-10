@@ -2,6 +2,8 @@
 #include "std.h"
 #include "nodes.h"
 
+#include <cstdint>
+
 //////////////////////////////
 // Sequence of declarations //
 //////////////////////////////
@@ -136,7 +138,10 @@ void FuncDeclNode::translate( Codegen *g ){
 	if( g->debug ){
 		string t=genLabel();
 		g->s_data( ident,t );
-		g->code( call( "__bbDebugEnter",local(0),iconst((int)sem_env),global(t) ) );
+		// 64-bit hosts: deliberately truncate to int to match the legacy 32-bit
+		// debugger frame ABI. Debug builds are gated on 32-bit codegen targets;
+		// the truncated handle is opaque to the runtime debugger.
+		g->code( call( "__bbDebugEnter",local(0),iconst((int)(intptr_t)sem_env),global(t) ) );
 	}
 
 	for( int k=0;k<sem_env->decls->size();++k ){

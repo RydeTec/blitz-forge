@@ -2,6 +2,8 @@
 #include "std.h"
 #include "nodes.h"
 
+#include <cstdint>
+
 //////////////////
 // The program! //
 //////////////////
@@ -56,7 +58,8 @@ void ProgNode::translate( Codegen *g,const vector<UserFunc> &usrfuncs ){
 	if( g->debug ){
 		string t=genLabel();
 		g->s_data( "<main program>",t );
-		g->code( call( "__bbDebugEnter",local(0),iconst((int)sem_env),global(t) ) );
+		// See declnode.cpp: legacy 32-bit debugger frame opaque handle.
+		g->code( call( "__bbDebugEnter",local(0),iconst((int)(intptr_t)sem_env),global(t) ) );
 	}
 
 	//no user funcs used!
