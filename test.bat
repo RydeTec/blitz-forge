@@ -34,7 +34,7 @@ exit /b 0
 :expect_success
 set "LABEL=%~1"
 shift /1
-"%BLITZPATH%\bin\blitzcc.exe" %* >nul 2>&1
+"%BLITZPATH%\bin\blitzcc.exe" %1 %2 %3 %4 %5 %6 %7 %8 %9 >nul 2>&1
 if errorlevel 1 (
     echo target contract FAILED: !LABEL!
     set FAILED=1
@@ -47,7 +47,7 @@ set "EXPECTED=%~2"
 shift /1
 shift /1
 set "TARGET_LOG=%TEMP%\blitzforge-target-%RANDOM%-%RANDOM%.log"
-"%BLITZPATH%\bin\blitzcc.exe" %* >"!TARGET_LOG!" 2>&1
+"%BLITZPATH%\bin\blitzcc.exe" %1 %2 %3 %4 %5 %6 %7 %8 %9 >"!TARGET_LOG!" 2>&1
 set "TARGET_RC=!ERRORLEVEL!"
 if !TARGET_RC! EQU 0 (
     echo target contract FAILED: !LABEL! unexpectedly succeeded
