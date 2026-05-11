@@ -33,8 +33,35 @@ static void showInfo(){
 	cout<<"(C)opyright 2000-2003 Blitz Research Ltd"<<endl;
 }
 
+// Targets the current blitzcc build can compile for.
+//
+// Today every supported target reuses the same compile pipeline
+// (Codegen_x86 -> Assem_x86 -> host linker module). The host build's link
+// configuration is what actually selects between native execution (Windows)
+// and the alpha stub linker (macOS arm64). The flag exists so build scripts
+// and CI can be explicit about intent and so that unsupported targets are
+// rejected with a clear, actionable message instead of silently being
+// ignored or misreported as "Usage error".
+static const char *hostDefaultTargetName(){
+	if( bfplatform::isWindows() ) return "windows-x86";
+	if( bfplatform::isMacOS() )   return "macos-arm64";
+	return "host";
+}
+
+static bool isTargetSupportedHere( const string &name ){
+	if( name=="host" ) return true;
+	if( bfplatform::isWindows() ) return name=="windows-x86";
+	if( bfplatform::isMacOS() )   return name=="macos-arm64";
+	return false;
+}
+
+static string canonicalTargetName( const string &raw ){
+	if( raw=="host" ) return hostDefaultTargetName();
+	return raw;
+}
+
 static void showUsage(){
-	cout<<"Usage: blitzcc [-h|-q|+q|-c|-d|-k|+k|-v|-t|-o exefile|-n icofile|-w workingdir] [sourcefile.bb]"<<endl;
+	cout<<"Usage: blitzcc [-h|-q|+q|-c|-d|-k|+k|-v|-t|-target name|-o exefile|-n icofile|-w workingdir] [sourcefile.bb]"<<endl;
 }
 
 static void showHelp(){
@@ -48,6 +75,7 @@ static void showHelp(){
 	cout<<"+k         		: dump keywords and syntax"<<endl;
 	cout<<"-v		  		: version info"<<endl;
 	cout<<"-t         		: run test"<<endl;
+	cout<<"-target name		: select compile target ('host', 'windows-x86', 'macos-arm64')"<<endl;
 	cout<<"-o exefile 		: generate executable"<<endl;
 	cout<<"-n icofile 		: set the executable icon"<<endl;
 	cout<<"-w workingdir 	: set the working directory"<<endl;
@@ -148,7 +176,7 @@ static void demoError(){
 
 int _cdecl main( int argc,char *argv[] ){
 
-	string in_file,out_file,ico_file,args,cwd;
+	string in_file,out_file,ico_file,args,cwd,target;
 	
 	bool debug=false,quiet=false,veryquiet=false,compileonly=false,test=false;
 	bool dumpkeys=false,dumphelp=false,showhelp=false,dumpasm=false;
@@ -190,6 +218,9 @@ int _cdecl main( int argc,char *argv[] ){
 		}else if( t=="-w" ) {
 			if( cwd.size() || k==argc-1 ) usageErr();
 			cwd=argv[++k];
+		}else if( t=="-target" ){
+			if( target.size() || k==argc-1 ) usageErr();
+			target=tolower(string(argv[++k]));
 		}
 		else{
 			if( in_file.size() || t[0]=='-' || t[0]=='+' ) usageErr();
@@ -213,6 +244,15 @@ int _cdecl main( int argc,char *argv[] ){
 	}
 	
 	if( out_file.size() && !in_file.size() ) usageErr();
+
+	if( target.size() ){
+		if( !isTargetSupportedHere(target) ){
+			err( "Unsupported -target '"+target+"' for this blitzcc build (host default: '"+string(hostDefaultTargetName())+"')." );
+		}
+		target=canonicalTargetName(target);
+	}else{
+		target=hostDefaultTargetName();
+	}
 
 	if (in_file[0] == '\"') {
 		if (in_file.size() < 3 || in_file[in_file.size() - 1] != '\"') usageErr();
@@ -246,7 +286,7 @@ int _cdecl main( int argc,char *argv[] ){
 	if( !in ) err( "Unable to open input file" );
 	if( !quiet ){
 		showInfo();
-		cout<<"Compiling \""<<in_file<<"\""<<endl;
+		cout<<"Compiling \""<<in_file<<"\" for target "<<target<<endl;
 	}
 	
 	if (cwd.size()) {
