@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TESTDIR="${ROOTDIR}/tests"
+TEST_TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/blitzforge-tests.XXXXXX")"
+trap 'rm -rf "${TEST_TMPDIR}"' EXIT
 
 BLITZCC_UNIX="${ROOTDIR}/bin/blitzcc"
 BLITZCC_WIN="${ROOTDIR}/bin/blitzcc.exe"
@@ -24,6 +26,52 @@ else
 fi
 
 FAILED=0
+TARGET_SAMPLE="${TESTDIR}/NumberTest.bb"
+
+run_target_expect_success() {
+  local label="$1"
+  shift
+  if ! "${BLITZCC}" -c +q "$@" "${TARGET_SAMPLE}" \
+    > "${TEST_TMPDIR}/target-success.out" 2> "${TEST_TMPDIR}/target-success.err"; then
+    echo "target contract FAILED: ${label}" >&2
+    cat "${TEST_TMPDIR}/target-success.err" >&2
+    FAILED=1
+  fi
+}
+
+run_target_expect_failure() {
+  local label="$1"
+  shift
+  set +e
+  "${BLITZCC}" -c +q "$@" "${TARGET_SAMPLE}" \
+    > "${TEST_TMPDIR}/target-failure.out" 2> "${TEST_TMPDIR}/target-failure.err"
+  local rc=$?
+  set -e
+
+  if [[ "${rc}" -eq 0 ]]; then
+    echo "target contract FAILED: ${label} unexpectedly succeeded" >&2
+    FAILED=1
+    return
+  fi
+
+  if ! grep -q "Unsupported -target" "${TEST_TMPDIR}/target-failure.out"; then
+    echo "target contract FAILED: ${label} did not report the unsupported-target error" >&2
+    echo "--- stdout ---" >&2
+    cat "${TEST_TMPDIR}/target-failure.out" >&2
+    echo "--- stderr ---" >&2
+    cat "${TEST_TMPDIR}/target-failure.err" >&2
+    FAILED=1
+  fi
+}
+
+run_target_expect_success "host alias compiles NumberTest" -target host
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  run_target_expect_success "native macOS target compiles NumberTest" -target macos-arm64
+  run_target_expect_failure "foreign Windows target is rejected" -target windows-x86
+else
+  run_target_expect_failure "foreign macOS target is rejected" -target macos-arm64
+fi
+
 while IFS= read -r -d '' f; do
   if ! "${BLITZCC}" "${TARGET_FLAG[@]}" "${EXEC_FLAG[@]}" -t "${f}"; then
     echo "\"${f}\" failed at least one test"
@@ -39,19 +87,17 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   # the stub runtime is still in place. It does NOT silently succeed when
   # nothing actually ran.
   STUB_SENTINEL="BlitzForge stub runtime: native execution is not yet implemented"
-  tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/blitzcc-arm64-exec.XXXXXX")"
-  trap 'rm -rf "${tmpdir}"' EXIT
-  cat > "${tmpdir}/arm64_exec_smoke.bb" <<'EOF'
+  cat > "${TEST_TMPDIR}/arm64_exec_smoke.bb" <<'EOF'
 Print "arm64_exec_smoke"
 End
 EOF
   set +e
-  "${BLITZCC}" +q -target macos-arm64 "${tmpdir}/arm64_exec_smoke.bb" \
-    > "${tmpdir}/arm64_exec_smoke.out" 2> "${tmpdir}/arm64_exec_smoke.err"
+  "${BLITZCC}" +q -target macos-arm64 "${TEST_TMPDIR}/arm64_exec_smoke.bb" \
+    > "${TEST_TMPDIR}/arm64_exec_smoke.out" 2> "${TEST_TMPDIR}/arm64_exec_smoke.err"
   smoke_rc=$?
   set -e
-  smoke_stdout="$(tr -d '\r' < "${tmpdir}/arm64_exec_smoke.out")"
-  smoke_stderr="$(cat "${tmpdir}/arm64_exec_smoke.err")"
+  smoke_stdout="$(tr -d '\r' < "${TEST_TMPDIR}/arm64_exec_smoke.out")"
+  smoke_stderr="$(cat "${TEST_TMPDIR}/arm64_exec_smoke.err")"
   if [[ "${smoke_stdout}" == "arm64_exec_smoke" && "${smoke_rc}" -eq 0 ]]; then
     echo "arm64 execution smoke: native runtime executed program correctly."
   elif grep -q "${STUB_SENTINEL}" <<<"${smoke_stderr}"; then
