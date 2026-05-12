@@ -1,28 +1,37 @@
-#!/bin/sh
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Flag to track if changes are made
+MARKER=';~IDEal Editor Parameters:'
 CHANGES_MADE=0
 
-# Loop through all files in the last commit
-git diff-tree --no-commit-id --name-only -r HEAD | while IFS= read -r FILE; do
-    # Check if file extension is .bb, .bp, .brc, or .bmx
-    if echo "$FILE" | grep -qE "\.(bb|bp|brc|bmx|BB)$"; then
-        # Check if the file contains the specific line
-        if grep -q ';~IDEal Editor Parameters:' "$FILE"; then
-            # Get the line number of the first occurrence of the specific line
-            LINE_NUM=$(grep -n ';~IDEal Editor Parameters:' "$FILE" | cut -d: -f1 | head -n 1)
-            sed -i "${LINE_NUM},\$d" "$FILE"
-            # Remove the last newline character left over
-            head -c -1 "$FILE" > tmp
-            mv tmp "$FILE"
-            CHANGES_MADE=1
-        fi
+trim_ideal_metadata() {
+  local file="$1"
+  local tmp
+  tmp="$(mktemp "${TMPDIR:-/tmp}/blitzforge-post-commit.XXXXXX")"
+  awk -v marker="${MARKER}" '
+    index($0, marker) == 1 { exit }
+    {
+      if (count++) {
+        printf "\n"
+      }
+      printf "%s", $0
+    }
+  ' "${file}" > "${tmp}"
+  mv "${tmp}" "${file}"
+}
 
-        
-    fi
-done
+while IFS= read -r file; do
+  [[ -f "${file}" ]] || continue
+  case "${file##*.}" in
+    bb|BB|bp|BP|brc|BRC|bmx|BMX)
+      if grep -qF "${MARKER}" "${file}"; then
+        trim_ideal_metadata "${file}"
+        CHANGES_MADE=1
+      fi
+      ;;
+  esac
+done < <(git diff-tree --root --no-commit-id --name-only -r HEAD)
 
-# If changes were made, inform the user
-if [ "$CHANGES_MADE" -eq 1 ]; then
-    echo "Post-commit hook made changes to files. Please review and commit them."
+if [[ "${CHANGES_MADE}" -eq 1 ]]; then
+  echo "Post-commit hook removed IDEal editor metadata. Review and commit the cleaned files."
 fi
