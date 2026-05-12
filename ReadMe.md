@@ -178,7 +178,14 @@ Every push and every pull request runs:
 - **Build + test** ([`ci.yml`](.github/workflows/ci.yml)) — compiles `blitzcc` and runs the Blitz test suite.
 - **Workflow lint** ([`static-analysis.yml`](.github/workflows/static-analysis.yml)) — `yamllint` and `actionlint` for GitHub Actions hygiene.
 
-The full test suite also runs as a local pre-commit hook. **Tests must pass to commit.**
+This repo ships local Git hooks under [`.hooks/`](.hooks), but they are opt-in per clone. Enable them once with `git config core.hooksPath .hooks`.
+
+After that:
+
+- the `pre-commit` hook runs `test.bat` on Windows shells and `test.sh` on Unix-like hosts,
+- the `post-commit` hook strips `;~IDEal Editor Parameters:` metadata from committed Blitz source files so IDE-only noise does not linger in the tree.
+
+**Tests must pass to commit.**
 
 ## Documentation
 
@@ -200,10 +207,11 @@ The full test suite also runs as a local pre-commit hook. **Tests must pass to c
 ### Workflow
 
 1. Fork or clone; branch from `develop`.
-2. Add or update tests in [`tests/`](tests) for any behavior change.
-3. Run `compile.bat` / `compile.sh` and `test.bat` / `test.sh` locally.
-4. Open a PR targeting `develop`. Releases are PRs from `develop` → `master`.
-5. CI must be green.
+2. Enable the repo hooks once per clone: `git config core.hooksPath .hooks`.
+3. Add or update tests in [`tests/`](tests) for any behavior change.
+4. Run `compile.bat` / `compile.sh` and `test.bat` / `test.sh` locally.
+5. Open a PR targeting `develop`. Releases are PRs from `develop` → `master`.
+6. CI must be green.
 
 For push access, request to join the [**RCCE Contributors team**](https://github.com/orgs/RydeTec/teams/rcce-contributors).
 
