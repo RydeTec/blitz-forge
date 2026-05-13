@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set ROOTDIR=%CD%
+for %%I in ("%~dp0.") do set "ROOTDIR=%%~fI"
 
 set BLITZPATH=%ROOTDIR%
 set FAILED=0
@@ -11,14 +11,14 @@ call :expect_success "host alias compiles NumberTest" -c +q -target host "%SAMPL
 call :expect_success "native Windows target compiles NumberTest" -c +q -target windows-x86 "%SAMPLE%"
 call :expect_failure "foreign macOS target is rejected" "Unsupported -target" -c +q -target macos-arm64 "%SAMPLE%"
 
-cd %ROOTDIR%\tests
+cd /d "%ROOTDIR%\tests"
 
 for /R %%f in (*.bb) do (
     "%BLITZPATH%\bin\blitzcc.exe" -t "%%f" || (echo "%%f failed at least one test" && SET FAILED=1)
     echo.
 )
 
-cd %ROOTDIR%
+cd /d "%ROOTDIR%"
 
 if !FAILED! == 1 (
     echo "Tests failed"

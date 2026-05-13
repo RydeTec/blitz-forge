@@ -1,11 +1,11 @@
 @echo off
 setlocal
 
-set ROOTDIR=%CD%
+for %%I in ("%~dp0.") do set "ROOTDIR=%%~fI"
 
-call .\compile.bat
+call "%ROOTDIR%\compile.bat"
 
-cd %ROOTDIR%
+cd /d "%ROOTDIR%"
 
 if exist "%ROOTDIR%\release" rmdir /S /Q "%ROOTDIR%\release"
 
@@ -25,7 +25,7 @@ REM Copy the compiled vscode extension
 if exist "%ROOTDIR%\..\..\extras\vscode-blitz-forge" (
     call "%ROOTDIR%\..\..\extras\vscode-blitz-forge\compile.bat"
 
-    cd %ROOTDIR%
+    cd /d "%ROOTDIR%"
     
     xcopy /Y "%ROOTDIR%\..\..\extras\vscode-blitz-forge\*.vsix" "%ROOTDIR%\release\"
 )
