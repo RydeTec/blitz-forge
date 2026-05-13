@@ -1,14 +1,14 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set ROOTDIR=%CD%
+for %%I in ("%~dp0.") do set "ROOTDIR=%%~fI"
 
 echo Compiling BlitzForge Toolchain...
-call .\scripts\msbuild_init.bat
+call "%ROOTDIR%\scripts\msbuild_init.bat"
 
-cd %ROOTDIR%
+cd /d "%ROOTDIR%"
 
-call .\scripts\msbuild_blitzforge.bat
+call "%ROOTDIR%\scripts\msbuild_blitzforge.bat"
 
-cd %ROOTDIR%
+cd /d "%ROOTDIR%"
 endlocal
