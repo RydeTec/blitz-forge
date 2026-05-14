@@ -4,6 +4,39 @@ set -euo pipefail
 ROOTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RELEASE_DIR="${ROOTDIR}/release"
 
+host_archive_basename() {
+  case "$(uname -s)" in
+    Darwin) echo "blitzforge-macos-arm64" ;;
+    Linux) echo "blitzforge-linux-host" ;;
+    *) echo "blitzforge-unix-host" ;;
+  esac
+}
+
+create_zip_archive() {
+  local source_parent="$1"
+  local source_name="$2"
+  local archive_path="$3"
+
+  if command -v zip >/dev/null 2>&1; then
+    (
+      cd "${source_parent}"
+      zip -qr "${archive_path}" "${source_name}"
+    )
+    return
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    (
+      cd "${source_parent}"
+      python3 -m zipfile -c "${archive_path}" "${source_name}"
+    )
+    return
+  fi
+
+  echo "Unable to create release archive: install zip or python3." >&2
+  exit 1
+}
+
 "${ROOTDIR}/compile.sh"
 
 rm -rf "${RELEASE_DIR}"
@@ -25,3 +58,15 @@ BlitzForge is a compiler for an enhanced version of the Blitz3D language.
 It is a fork of the Blitz3D compiler and adds support for BlitzForge commands and syntax.
 You can develop with BlitzForge in Visual Studio Code by installing the bundled .vsix extension.
 EOF
+
+ARCHIVE_BASENAME="$(host_archive_basename)"
+ARCHIVE_PATH="${RELEASE_DIR}/${ARCHIVE_BASENAME}.zip"
+PACKAGE_TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/blitzforge-package.XXXXXX")"
+trap 'rm -rf "${PACKAGE_TMPDIR}"' EXIT
+PACKAGE_ROOT="${PACKAGE_TMPDIR}/${ARCHIVE_BASENAME}"
+mkdir -p "${PACKAGE_ROOT}"
+rsync -a "${RELEASE_DIR}/" "${PACKAGE_ROOT}/"
+rm -f "${ARCHIVE_PATH}"
+create_zip_archive "${PACKAGE_TMPDIR}" "${ARCHIVE_BASENAME}" "${ARCHIVE_PATH}"
+
+echo "Created release archive: ${ARCHIVE_PATH}"
