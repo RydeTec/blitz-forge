@@ -18,6 +18,20 @@ else
 fi
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
+  RUNTIME_LIB="${ROOTDIR}/bin/runtime.dylib"
+  LINKER_LIB="${ROOTDIR}/bin/linker.dylib"
+else
+  RUNTIME_LIB="${ROOTDIR}/bin/runtime.so"
+  LINKER_LIB="${ROOTDIR}/bin/linker.so"
+fi
+
+if [[ ! -f "${RUNTIME_LIB}" || ! -f "${LINKER_LIB}" ]]; then
+  echo "runtime/linker companion libraries are missing for this host build." >&2
+  echo "compile.sh only produces a runnable Unix blitzcc on macOS today." >&2
+  exit 1
+fi
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
   TARGET_FLAG=(-target macos-arm64)
   EXEC_FLAG=(-c)
 else
