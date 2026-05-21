@@ -51,6 +51,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Validate publish contract
+        run: bash scripts/test_publish_contract.sh
+
       - name: Install build dependencies
         run: brew install cmake ninja
 
