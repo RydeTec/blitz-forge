@@ -6,7 +6,7 @@
 
 ### Blitz3D, modernized.
 
-**An open-source, cross-platform compiler and runtime for the Blitz programming language** — keeping a generation of games and tools alive while moving them onto modern hardware.
+**A community-developed, cross-platform compiler and runtime for the Blitz programming language** — keeping a generation of games and tools alive while moving them onto modern hardware.
 
 ---
 
@@ -41,7 +41,7 @@
 
 Blitz3D and BlitzBasic shaped a generation of indie game development. The original toolchain was tied to 32-bit Windows, closed-source, and frozen. BlitzForge is the alternative:
 
-- **Open source.** MIT-style community development, public CI, no surprise binaries.
+- **Public source + public CI.** The compiler core and bundled third-party libraries carry checked-in license notices; see [LICENSES.md](LICENSES.md) for the source-of-truth paths.
 - **Cross-platform foundations.** Native Windows x86_64 is the stable target today. A macOS Apple Silicon (arm64) port is in **alpha** — same source tree, ARM64 codegen, Cocoa runtime backend — but not yet ready to ship games on. See [macOS (Apple Silicon) — alpha](#macos-apple-silicon--alpha) below.
 - **Modern build system.** CMake + Ninja, optional static analysis, GitHub Actions CI on every push.
 - **Drop-in compatible.** Existing `.bb` source compiles. Existing `.decls` userlibs work. We do not break your games.
@@ -241,7 +241,13 @@ BlitzForge is a respectful continuation of the work of Mark Sibly and the origin
 
 ## License
 
-BlitzForge is community-developed and openly available. Subsystems vendored from third parties retain their original licenses (see in-tree headers and `LICENSE` files where present). For questions about reuse, redistribution, or commercial use, please open a [Discussion](https://github.com/RydeTec/blitz-forge/discussions) or contact the maintainers.
+BlitzForge's licensing is currently documented through component-specific notices in the tree rather than a single repo-root `LICENSE` file.
+
+- The inherited compiler/runtime core under [`src/blitzrc/`](src/blitzrc) carries the original Blitz3D source release notice in [`src/blitzrc/LICENSE.TXT`](src/blitzrc/LICENSE.TXT), which states the `zlib/libpng` license.
+- Vendored third-party components retain their own bundled license texts, including [`src/libogg/COPYING`](src/libogg/COPYING), [`src/libvorbis/COPYING`](src/libvorbis/COPYING), [`src/freeimage241/license-fi.txt`](src/freeimage241/license-fi.txt), [`src/freeimage241/license-gpl.txt`](src/freeimage241/license-gpl.txt), and the nested notices under [`src/freeimage241/Source/`](src/freeimage241/Source/).
+- For a pointer map of the license files that matter to source checkouts and release artifacts, see [`LICENSES.md`](LICENSES.md).
+
+If you are evaluating reuse or redistribution, review the component notice(s) that cover the parts you intend to ship.
 
 ---
 
