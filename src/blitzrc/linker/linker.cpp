@@ -46,7 +46,7 @@ private:
 		char *old_data=data;
 		data=d_new char[data_sz];
 		memcpy( data,old_data,pc );
-		delete old_data;
+		delete[] old_data;
 	}
 };
 

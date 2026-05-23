@@ -43,7 +43,11 @@ static int findCC( const string &s ){
 	if( s=="s" ) return 8;
 	if( s=="ns" ) return 9;
 	if( s=="p"||s=="pe" ) return 10;
-	if( s=="ne"||s=="po" ) return 11;
+	// Fix typo: the "ne" branch on this line was a duplicate of line 40
+	// above and meant the parity-odd condition could never be resolved by
+	// name. Per Intel SDM the suffix is "po" (parity odd) — symmetric to
+	// "pe" on the preceding line.
+	if( s=="po" ) return 11;
 	if( s=="l"||s=="nge" ) return 12;
 	if( s=="ge"||s=="nl" ) return 13;
 	if( s=="le"||s=="ng" ) return 14;

@@ -402,8 +402,16 @@ void Codegen_arm64::emitIntExpr( TNode *t,const string &dst ){
 		return;
 	}
 	default:
+		// Emit a hard runtime trap (brk #1) alongside the existing assembler
+		// .error directive. The previous form was just a comment +
+		// ".error" + a fallback `mov dst, xzr`; if any toolchain ever
+		// filtered the directive out of the produced assembly, the silent
+		// `mov xzr` would slip into a built binary. brk #1 is unambiguous
+		// and unconditionally traps at runtime, so it can't be a silent
+		// miscompile even if the assembler ignored the .error.
 		emitLine( "\t// arm64 backend unsupported integer op="+itoa(t->op) );
 		emitLine( "\t.error\t\"arm64 backend unsupported integer IR op "+itoa(t->op)+"\"" );
+		emitLine( "\tbrk\t#1" );
 		emitLine( "\tmov\t"+dst+", xzr" );
 		return;
 	}

@@ -99,7 +99,7 @@ struct Rsrc{
 
 	~Rsrc(){
 		for( ;kids.size();kids.pop_back() ) delete kids.back();
-		delete data;
+		delete[] (char*)data;
 	}
 };
 
