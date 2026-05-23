@@ -752,16 +752,21 @@ int _bbVectorAt(int aPtr, int idx) {
 
 void _bbVectorRelease(int aPtr, int idx) {
 	int ptr = _bbVectorAt(aPtr, idx);
-	if (ptr != 0) {  // Avoid null pointers
-		void* objPtr = reinterpret_cast<void*>(ptr);
-		
-		// Try to cast to BBObj*
-		BBObj* bbObj = dynamic_cast<BBObj*>(static_cast<BBObj*>(objPtr));
-		
-		if (bbObj != nullptr) {
-			// If successful, it's a BBObj, so release it
-			_bbRelease(ptr, "BBCustom");
-		}
+	if (ptr != 0) {
+		// NOTE: BBList is type-erased; the element pointer here could be a
+		// BBObj, BBList, BBBank, or any other refcounted handle. The legacy
+		// dynamic_cast<BBObj*> on a non-polymorphic struct is undefined
+		// behaviour, so the value of the cast was effectively "always succeed"
+		// — i.e. every element was released as BBCustom. That works for
+		// BBObj-only lists (the common case) and is what existing tests
+		// assume; lists holding non-BBObj elements (e.g. lists of lists)
+		// invoke _bbObjDelete on garbage memory and may crash. A proper fix
+		// requires per-element type tagging or a runtime label dispatch in
+		// _bbRelease covering all BlitzTypes; both are tracked separately.
+		// For now: keep the existing "release as BBCustom" semantics but
+		// drop the meaningless dynamic_cast so the intent is honest in the
+		// source.
+		_bbRelease(ptr, "BBCustom");
 	}
 }
 
@@ -800,8 +805,13 @@ void _bbVectorRemove(int aPtr, int idx) {
 void _bbVectorReplace(int aPtr, int idx, int valuePtr) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
-	_bbVectorRemove(aPtr, idx);
-	_bbVectorInsert(aPtr, idx, valuePtr);
+	// Ref new before releasing old. Otherwise, if valuePtr is the same pointer
+	// already at idx, _bbVectorRemove drops its refcount to 0 and frees it;
+	// _bbVectorInsert then references freed memory.
+	_bbReference(valuePtr);
+	_bbVectorRelease(aPtr, idx);
+	vecPtr->erase(vecPtr->begin() + idx);
+	vecPtr->insert(vecPtr->begin() + idx, valuePtr);
 }
 
 void _bbVectorFree(int aPtr) {
