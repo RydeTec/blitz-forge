@@ -14,6 +14,14 @@ void _bbLoadLibs( char *p ){
 	while( *p ){
 		HMODULE mod=LoadLibrary( p );
 		if( !mod ){
+			// Skip this DLL and its proc table. Previously this `continue`
+			// jumped to the loop test without advancing `p`, hanging the
+			// runtime on startup whenever any user library DLL was missing.
+			p+=strlen(p)+1;
+			while( *p ){
+				p+=strlen(p)+1;
+				p+=4;
+			}
 			continue;
 		}
 		_mods.push_back(mod);
