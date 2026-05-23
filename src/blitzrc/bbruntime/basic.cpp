@@ -714,7 +714,9 @@ int _bbReferenceCount(int vPtr) {
 int _bbNewVector() {
 	std::vector<int>* newVec = new std::vector<int>;
 	++listCnt;
-	return reinterpret_cast<int>(newVec);
+	int ptr = reinterpret_cast<int>(newVec);
+	_bbReference(ptr);
+	return ptr;
 }
 
 void _bbVectorPushBack(int aPtr, int valuePtr) {
@@ -805,15 +807,22 @@ void _bbVectorReplace(int aPtr, int idx, int valuePtr) {
 void _bbVectorFree(int aPtr) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
-	
+
 	// Release all elements in the vector
 	for (int idx = 0; idx < vecPtr->size(); ++idx) {
 		_bbVectorRelease(aPtr, idx);
 	}
-	
+
 	vecPtr->clear();
 	delete vecPtr;
 	--listCnt;
+}
+
+// User-callable FreeList: releases the caller's initial reference (taken by
+// _bbNewVector) and lets the refcount system free the vector when the last
+// reference drops. Prevents double-free when scope-exit __bbRelease also runs.
+void _bbVectorFreeUserCall(int aPtr) {
+	_bbRelease(aPtr, "BBList");
 }
 
 int _bbVectorFind(int aPtr, int vPtr) {
@@ -1019,7 +1028,7 @@ void basic_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym("ListRemove(BBList)a_ptr%idx", _bbVectorRemove);
 	rtSym("ListReplace(BBList)a_ptr%idx(BBPointer)v_ptr", _bbVectorReplace);
 	rtSym("%ListFind(BBList)a_ptr(BBPointer)v_ptr", _bbVectorFind);
-	rtSym("FreeList(BBList)", _bbVectorFree);
+	rtSym("FreeList(BBList)", _bbVectorFreeUserCall);
 
 	rtSym("_bbReference", _bbReference);
 	rtSym("_bbRelease", _bbRelease);
