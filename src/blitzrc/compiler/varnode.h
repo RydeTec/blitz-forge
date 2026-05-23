@@ -30,7 +30,13 @@ struct DeclVarNode : public VarNode{
 
 struct IdentVarNode : public DeclVarNode{
 	string ident,tag;
-	IdentVarNode( const string &i,const string &t ):ident(i),tag(t){}
+	// When true and Strict is active, semant() refuses to auto-declare an
+	// unknown identifier and raises an error instead. Set by the read-only
+	// construction site (parsePrimary's IDENT case); left false for the
+	// write/loop-counter sites so the legacy auto-decl behaviour is kept
+	// where it's idiomatic.
+	bool strictMustExist;
+	IdentVarNode( const string &i,const string &t,bool mustExist=false ):ident(i),tag(t),strictMustExist(mustExist){}
 	void semant( Environ *e );
 };
 

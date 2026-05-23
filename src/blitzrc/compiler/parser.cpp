@@ -595,7 +595,7 @@ VarNode *Parser::parseVar(){
 	return parseVar( ident,tag );
 }
 
-VarNode *Parser::parseVar( const string &ident,const string &tag ){
+VarNode *Parser::parseVar( const string &ident,const string &tag,bool readContext ){
 	a_ptr<VarNode> var;
 	if( toker->curr()=='(' ){
 		toker->next();
@@ -603,7 +603,7 @@ VarNode *Parser::parseVar( const string &ident,const string &tag ){
 		if( toker->curr()!=')' ) exp( "')'" );
 		toker->next();
 		var=d_new ArrayVarNode( ident,tag,exprs.release() );
-	}else var=d_new IdentVarNode( ident,tag );
+	}else var=d_new IdentVarNode( ident,tag,readContext );
 
 	for(;;){
 		if( toker->curr()=='\\' ){
@@ -1132,7 +1132,10 @@ ExprNode *Parser::parsePrimary( bool opt ){
 			result=d_new CallNode( ident,tag,exprs.release() );
 		}else{
 			//must be a var
-			VarNode *var=parseVar( ident,tag );
+			// readContext=true → if Strict is active, IdentVarNode::semant
+			// will refuse to auto-declare an unknown identifier (instead of
+			// silently coining a new int local that hides the bug).
+			VarNode *var=parseVar( ident,tag, /*readContext=*/true );
 			result=d_new VarExprNode( var );
 		}
 		break;
