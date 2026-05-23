@@ -136,12 +136,16 @@ Tile *Codegen_x86::munchLogical( TNode *t ){
 Tile *Codegen_x86::munchArith( TNode *t ){
 
 	if( t->op==IR_DIV ){
-		int shift;
-		if( t->r->op==IR_CONST ){
-			if( getShift( t->r->iconst,shift ) ){
-				return d_new Tile( "\tsar\t%l,byte "+itoa(shift)+"\n",munchReg( t->l ) );
-			}
-		}
+		// Blitz integer division is signed-truncated-toward-zero (matches
+		// C's `/`). The previous power-of-2 fast path emitted a plain `sar`,
+		// which is signed-floor: e.g. (-1)/2 should be 0, sar gives -1; (-3)/2
+		// should be -1, sar gives -2. Fall through to the general idiv path
+		// for divisors that would otherwise hit the buggy shortcut.
+		//
+		// The shift fast-path could be rescued with a `test/cdq/and/add/sar`
+		// sequence (add a `divisor-1` bias when the value is negative), but
+		// idiv is not measurably slower than that on modern x86; the
+		// straightforward `cdq/idiv` path is correct and simple.
 		Tile *q=d_new Tile( "\tcdq\n\tidiv\tecx\n",munchReg( t->l ),munchReg( t->r ) );
 		q->want_l=EAX;q->want_r=ECX;q->hits=1<<EDX;
 		return q;
