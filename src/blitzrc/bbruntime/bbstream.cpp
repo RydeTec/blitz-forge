@@ -65,6 +65,13 @@ BBStr *bbReadString( bbStream *s ){
 	int len;
 	BBStr *str=d_new BBStr();
 	if( s->read( (char*)&len,4 ) ){
+		// Length is read straight from the stream so it can be negative or
+		// absurdly large. d_new char[negative] is UB; d_new char[2GB] aborts.
+		// Reject anything outside a sane string range — a malicious file
+		// otherwise crashes the runtime on every load.
+		if( len<0 || len>16*1024*1024 ){
+			return str;
+		}
 		char *buff=d_new char[len];
 		if( s->read( buff,len ) ){
 			*str=string( buff,len );
@@ -138,7 +145,7 @@ void bbCopyStream( bbStream *s,bbStream *d,int buff_size ){
 		d->write( buff,n );
 		if( n<buff_size ) break;
 	}
-	delete buff;
+	delete[] buff;
 }
 
 bool stream_create(){
