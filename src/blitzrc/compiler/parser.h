@@ -46,7 +46,7 @@ private:
 	string parseTypeTag();
 
 	VarNode *parseVar();
-	VarNode *parseVar( const string &ident,const string &tag );
+	VarNode *parseVar( const string &ident,const string &tag,bool readContext=false );
 	CallNode *parseCall( const string &ident,const string &tag );
 	IfNode *parseIf(vector<string> localIdents = vector<string>());
 

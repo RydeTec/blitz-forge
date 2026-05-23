@@ -58,6 +58,12 @@ void IdentVarNode::semant( Environ *e ){
 		Type *ty=sem_decl->type;
 		if( ty->constType() ) ty=ty->constType()->valueType;
 		if( tag.size() && t!=ty ) ex( "Variable type mismatch" );
+	}else if( strictMustExist && e->strict ){
+		// Strict-on-reads: the read-only construction path (parsePrimary's
+		// IDENT case) marks the node so we refuse to auto-decl here. Writes
+		// and loop counters set strictMustExist=false and keep the legacy
+		// auto-decl, preserving idiomatic `For i = 0 To 10`.
+		ex( "Identifier '"+ident+"' has not been declared (Strict)" );
 	}else{
 		//ugly auto decl!
 		sem_decl=e->decls->insertDecl( ident,t,DECL_LOCAL );
