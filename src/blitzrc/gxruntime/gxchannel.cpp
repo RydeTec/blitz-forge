@@ -324,11 +324,21 @@ static void streamOGG(const std::string &filename,bool isPanned,
 				} while (bytes>0 && bufData.size()<4096*16);
 
 				if (bufData.size()>0) {
+					// alSourceUnqueueBuffers writes the un-queued buffer
+					// *name* into the out-param. Previous code passed in
+					// &buffer=0 then immediately called alBufferData(buffer,
+					// ...) without using the value Unqueue wrote -- it was
+					// calling alBufferData(0, ...) (the null buffer name)
+					// and re-queueing buffer 0, producing silence after
+					// the first chunk played. Use what Unqueue wrote and
+					// bail when the source had no processed buffer to
+					// recycle.
 					ALuint buffer = 0;
 					alSourceUnqueueBuffers(source,1,&buffer);
-					
-					alBufferData(buffer,format,&bufData[0],bufData.size(),freq);
-					alSourceQueueBuffers(source,1,&buffer);
+					if (buffer != 0) {
+						alBufferData(buffer,format,&bufData[0],bufData.size(),freq);
+						alSourceQueueBuffers(source,1,&buffer);
+					}
 				}
 				if (seek >= 0.f) {
 					alSourceStop(source);
@@ -364,9 +374,19 @@ static void streamOGG(const std::string &filename,bool isPanned,
 	alSourceStop(source);
 	alSourceRewind(source);
 
-	ALint buffersFree; ALuint *tbuf = 0;
+	// Previously passed a NULL `tbuf` into alSourceUnqueueBuffers with
+	// a nonzero count -- OpenAL either dereferences null or (more
+	// often) returns AL_INVALID_VALUE leaving the buffers queued. Result
+	// was a slow leak of buffer queue slots per stream tear-down.
+	// Allocate a real array sized for the worst case (4 buffers per
+	// stream by our own setup loop above).
+	ALint buffersFree = 0;
 	alGetSourcei(source,AL_BUFFERS_PROCESSED,&buffersFree);
-	alSourceUnqueueBuffers(source,buffersFree,tbuf);
+	if (buffersFree > 0) {
+		ALuint tbufArr[4];
+		int n = buffersFree > 4 ? 4 : buffersFree;
+		alSourceUnqueueBuffers(source,n,tbufArr);
+	}
 
 	alSourcei(source,AL_BUFFER,0);
 
