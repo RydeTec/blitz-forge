@@ -117,19 +117,33 @@ int  bbPeekByte( bbBank *b,int offset ){
 	return *(unsigned char*)(b->data+offset);
 }
 
+// Peek/Poke use memcpy rather than direct misaligned dereference. A bank
+// stores raw bytes at arbitrary offsets, so reading `*(int*)(data+offset)`
+// is unaligned for almost every offset that isn't a multiple of 4. x86
+// allows unaligned loads silently; ARM64 (and stricter platforms) can
+// trap. memcpy compiles to the same single load/store on platforms that
+// support unaligned access and to a safe byte-by-byte read where they
+// don't.
+
 int  bbPeekShort( bbBank *b,int offset ){
 	if (!debugBank( b,offset+1,"PeekShort")) return 0;
-	return *(unsigned short*)(b->data+offset);
+	unsigned short v;
+	memcpy( &v,b->data+offset,sizeof v );
+	return v;
 }
 
 int  bbPeekInt( bbBank *b,int offset ){
 	if (!debugBank( b,offset+3,"PeekInt")) return 0;
-	return *(int*)(b->data+offset);
+	int v;
+	memcpy( &v,b->data+offset,sizeof v );
+	return v;
 }
 
 float  bbPeekFloat( bbBank *b,int offset ){
 	if (!debugBank( b,offset+3,"PeekFloat")) return 0;
-	return *(float*)(b->data+offset);
+	float v;
+	memcpy( &v,b->data+offset,sizeof v );
+	return v;
 }
 
 void  bbPokeByte( bbBank *b,int offset,int value ){
@@ -138,18 +152,19 @@ void  bbPokeByte( bbBank *b,int offset,int value ){
 }
 
 void  bbPokeShort( bbBank *b,int offset,int value ){
-	if (!debugBank( b,offset,"PokeShort")) return;
-	*(unsigned short*)(b->data+offset)=value;
+	if (!debugBank( b,offset+1,"PokeShort")) return;
+	unsigned short v = static_cast<unsigned short>(value);
+	memcpy( b->data+offset,&v,sizeof v );
 }
 
 void  bbPokeInt( bbBank *b,int offset,int value ){
-	if (!debugBank( b,offset,"PokeInt")) return;
-	*(int*)(b->data+offset)=value;
+	if (!debugBank( b,offset+3,"PokeInt")) return;
+	memcpy( b->data+offset,&value,sizeof value );
 }
 
 void  bbPokeFloat( bbBank *b,int offset,float value ){
-	if (!debugBank( b,offset,"PokeFloat")) return;
-	*(float*)(b->data+offset)=value;
+	if (!debugBank( b,offset+3,"PokeFloat")) return;
+	memcpy( b->data+offset,&value,sizeof value );
 }
 
 int   bbReadBytes( bbBank *b,bbStream *s,int offset,int count ){
