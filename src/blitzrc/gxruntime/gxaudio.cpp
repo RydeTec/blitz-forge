@@ -37,12 +37,29 @@ gxAudio::~gxAudio(){
 	for (unsigned int i=0;i<SOURCE_COUNT;i++) {
 		if (channels[i]) {
 			channels[i]->stop();
-			while (!channels[i]->canDispose()) {}
+			// Wait for the channel to become disposable (SampleChannel
+			// waits for OpenAL to drop the source out of AL_PLAYING;
+			// StreamChannel waits for the streaming worker to set
+			// markedForDeletion before returning). Two guards on the
+			// original tight loop:
+			//   1) The bare `while (!canDispose()) {}` pegged a core
+			//      during shutdown -- a tight spin with no yield.
+			//   2) If the streaming worker is wedged (stuck I/O, OpenAL
+			//      driver glitch), the loop never returns and the
+			//      destructor hangs the process forever. After ~2s,
+			//      bail and let the channel destructor's own join /
+			//      buffer cleanup handle the rest -- a missed cleanup
+			//      tick beats a frozen shutdown.
+			DWORD canDisposeDeadline = timeGetTime() + 2000;
+			while (!channels[i]->canDispose()) {
+				if ((LONG)(timeGetTime() - canDisposeDeadline) >= 0) break;
+				Sleep(1);
+			}
 			delete channels[i];
 		}
 		alDeleteSources(1,&sources[i]);
 	}
-    
+
     alcMakeContextCurrent(0);
 	alcDestroyContext(context);
     alcCloseDevice(device);
