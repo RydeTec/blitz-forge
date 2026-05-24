@@ -403,6 +403,23 @@ IDirectDrawSurface7 *loadDXTC(const char* filename,gxGraphics *gfx)
 	/* add texture manage flag */
 	ddsd.ddsCaps.dwCaps2|=DDSCAPS2_TEXTUREMANAGE;
 
+	/* Reject implausible dimensions before handing the descriptor to
+	   DirectDraw. The 32-bit chunk-size math below ((w+3)/4 *
+	   (h+3)/4 * blockSize) overflows int well before texture sizes
+	   approach the file/process limit -- with blockSize=16 a 32k square
+	   already exceeds INT_MAX. A hostile DDS that claims gigantic
+	   dimensions would then drive an over-large fread into the Lock()ed
+	   surface buffer (which DirectDraw sizes from the same fields), an
+	   easy heap corruption. 16k matches the largest texture dimension
+	   that consumer GPUs of this era can sample anyway. */
+	const DWORD DDS_MAX_DIM = 16384;
+	if (ddsd.dwWidth == 0 || ddsd.dwHeight == 0 ||
+	    ddsd.dwWidth > DDS_MAX_DIM || ddsd.dwHeight > DDS_MAX_DIM)
+	{
+		fclose(fp);
+		return NULL;
+	}
+
 	/* Create the new DXTC surface using the DDSURFACEDESC2
 	we read in from the file */
 	IDirectDrawSurface7 * newSurf = NULL;
@@ -435,20 +452,39 @@ IDirectDrawSurface7 *loadDXTC(const char* filename,gxGraphics *gfx)
 			fclose(fp);
 			topDDS->Release();
 			newSurf->Release();
-			nextDDS->Release();
+			/* nextDDS is NULL on the first iteration; only Release if
+			   GetAttachedSurface has already advanced it. */
+			if (nextDDS) nextDDS->Release();
 			return NULL;
 		}
 
-		/* how big the raw data is for this surface */
-		chunkSize = ((ddsd.dwWidth+3)/4) * ((ddsd.dwHeight+3)/4) * blockSize;
+		/* how big the raw data is for this surface. The dimension cap
+		   above guarantees this fits in int without overflow; double-
+		   check anyway because mipmap chains halve dimensions and we
+		   want defensive bounds at each level. */
+		DWORD blocksW = (ddsd.dwWidth + 3) / 4;
+		DWORD blocksH = (ddsd.dwHeight + 3) / 4;
+		if (blocksW == 0 || blocksH == 0 ||
+		    blocksW > (DWORD)(INT_MAX / blockSize) ||
+		    blocksH > (DWORD)((INT_MAX / blockSize) / blocksW))
+		{
+			topDDS->Unlock(NULL);
+			fclose(fp);
+			topDDS->Release();
+			newSurf->Release();
+			if (nextDDS) nextDDS->Release();
+			return NULL;
+		}
+		chunkSize = (int)(blocksW * blocksH * (DWORD)blockSize);
 
 		/* read in the raw DXTC surface data */
 		if(!fread(ddsd.lpSurface, chunkSize, 1, fp))
 		{
+			topDDS->Unlock(NULL);
 			fclose(fp);
 			topDDS->Release();
 			newSurf->Release();
-			nextDDS->Release();
+			if (nextDDS) nextDDS->Release();
 			return NULL;
 		}
 		topDDS->Unlock(NULL);
