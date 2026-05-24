@@ -168,16 +168,27 @@ static void streamOGG(const std::string &filename,bool isPanned,
 	int endian = 0;
 	int bitStream;
 	long bytes;
-	char* arry = new char[4096];
 	FILE *f;
 	f=fopen(filename.c_str(),"rb");
 	if (f==nullptr) {
 		return;
 	}
+	// Move arry allocation past fopen so a failed open doesn't leak it
+	char* arry = new char[4096];
 	vorbis_info *pInfo;
 	OggVorbis_File oggfile;
-	ov_open(f,&oggfile,"",0);
+	// Check ov_open + ov_info; failures used to deref null pInfo.
+	if( ov_open(f,&oggfile,"",0) != 0 ){
+		delete[] arry;
+		fclose(f);
+		return;
+	}
 	pInfo = ov_info(&oggfile,-1);
+	if (!pInfo) {
+		delete[] arry;
+		ov_clear(&oggfile);
+		return;
+	}
 	if (pInfo->channels == 1) {
 		format = AL_FORMAT_MONO16;
 	} else {

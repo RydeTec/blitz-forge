@@ -41,25 +41,38 @@ bool gxSoundSample::loadOGG(const std::string &filename,std::vector<char> &buffe
 	int endian = 0;
 	int bitStream;
 	long bytes;
-	char* arry = new char[4096];
 	FILE *f;
 	f=fopen(filename.c_str(),"rb");
 	if (f==nullptr) {
 		return false;
 	}
+	// Move the 4KB arry allocation past the open: the previous order
+	// leaked it whenever fopen failed (early return below before the
+	// matching delete[]).
+	char* arry = new char[4096];
 	vorbis_info *pInfo;
 	OggVorbis_File oggfile;
-	ov_open(f,&oggfile,"",0);
-	pInfo = ov_info(&oggfile,-1);
-	if (pInfo) {
-		if (pInfo->channels == 1) {
-			format = AL_FORMAT_MONO16;
-		}
-		else {
-			format = AL_FORMAT_STEREO16;
-		}
-		freq = pInfo->rate;
+	// ov_open's return value used to be ignored: on failure (corrupt
+	// header, not actually an Ogg, codec missing) ov_info() returns
+	// null and the original code dereferenced pInfo->channels.
+	if( ov_open(f,&oggfile,"",0) != 0 ){
+		delete[] arry;
+		fclose(f);
+		return false;
 	}
+	pInfo = ov_info(&oggfile,-1);
+	if (!pInfo) {
+		delete[] arry;
+		ov_clear(&oggfile);
+		return false;
+	}
+	if (pInfo->channels == 1) {
+		format = AL_FORMAT_MONO16;
+	}
+	else {
+		format = AL_FORMAT_STEREO16;
+	}
+	freq = pInfo->rate;
 	int div = 1;
 	if (isPanned && format==AL_FORMAT_STEREO16) {
 		//OpenAL does not perform automatic panning or attenuation with stereo tracks
