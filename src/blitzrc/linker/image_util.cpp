@@ -129,20 +129,62 @@ static Rsrc *rsrc_root;
 
 static const char *img_file;
 
-static void openRsrcDir( Section *s,int off,Rsrc *p ){
+// Bound the resource tree traversal against the section's actual data
+// size. The original implementation walked Rdir/Rent/Rdat purely by
+// trusting offsets and counts encoded in the section payload, so a
+// malformed .rsrc section (corrupt stub binary, hostile templated DLL)
+// could:
+//   - dereference an Rdir at any offset within memory (data+off OOB),
+//   - iterate dir->num_ids well past the section, reading adjacent heap,
+//   - point dat->addr at any RVA, making src a wild pointer for memcpy,
+//   - request an arbitrary dat->size allocation copied from that wild
+//     pointer (writable-image -> read primitive in the linker DLL),
+//   - or recurse unboundedly via node entries that point back at
+//     themselves (stack exhaustion).
+// The bounds plumbed below are conservative -- legitimate PE resource
+// trees fit well inside them.
+static const int RSRC_MAX_DIR_ENTRIES = 65535;
+static const int RSRC_MAX_DEPTH       = 32;
+
+static bool rsrcRangeInSection( Section *s,int off,int len ){
+	if( off<0 || len<0 ) return false;
+	if( off>s->sect.data_size ) return false;
+	if( len>s->sect.data_size-off ) return false;
+	return true;
+}
+
+static void openRsrcDir( Section *s,int off,Rsrc *p,int depth ){
+	if( depth>RSRC_MAX_DEPTH ) return;
+	if( !rsrcRangeInSection( s,off,sizeof(Rdir) ) ) return;
+
 	char *data=(char*)s->data;
 
 	Rdir *dir=(Rdir*)(data+off);
-	Rent *ent=(Rent*)(dir+1);
+	int total=dir->num_ids;
+	// Also fold num_names (named entries precede id entries in PE
+	// resource tables) so a hostile binary can't drive past data via
+	// an unaccounted name section.
+	total+=dir->num_names;
+	if( total<=0 ) return;
+	if( total>RSRC_MAX_DIR_ENTRIES ) return;
+
+	int ents_off=off+sizeof(Rdir);
+	if( !rsrcRangeInSection( s,ents_off,(int)sizeof(Rent)*total ) ) return;
+
+	Rent *ent=(Rent*)(data+ents_off);
 	for( int k=0;k<dir->num_ids;++ent,++k ){
 		Rsrc *r=d_new Rsrc( ent->id,p );
 		if( ent->data<0 ){	//a node - offset is another dir
-			openRsrcDir( s,ent->data&0x7fffffff,r );
+			openRsrcDir( s,ent->data&0x7fffffff,r,depth+1 );
 		}else{				//a leaf
-			Rdat *dat=(Rdat*)( data+ent->data );
-//			cout<<"dat addr:"<<dat->addr<<" size:"<<dat->size<<endl;
+			int dat_off=ent->data;
+			if( !rsrcRangeInSection( s,dat_off,sizeof(Rdat) ) ) continue;
+			Rdat *dat=(Rdat*)( data+dat_off );
 			int sz=dat->size;
-			void *src=dat->addr-s->sect.virt_addr+data;
+			if( sz<0 || sz>s->sect.data_size ) continue;
+			int src_off=dat->addr-s->sect.virt_addr;
+			if( !rsrcRangeInSection( s,src_off,sz ) ) continue;
+			void *src=data+src_off;
 			void *dest=d_new char[sz];
 			memcpy( dest,src,sz );
 			r->data=dest;
@@ -153,7 +195,7 @@ static void openRsrcDir( Section *s,int off,Rsrc *p ){
 
 static void openRsrcTree( Section *s ){
 	rsrc_root=d_new Rsrc( 0,0 );
-	openRsrcDir( s,0,rsrc_root );
+	openRsrcDir( s,0,rsrc_root,0 );
 }
 
 static int rsrcSize( Rsrc *r ){
