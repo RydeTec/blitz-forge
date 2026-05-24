@@ -37,8 +37,14 @@ static bool getShift( int n,int &shift ){
 	return false;
 #endif
 
+	// `1 << 31` on a signed int is UB per the C++ standard (signed
+	// overflow); the compiler is free to optimise it as if it can't
+	// happen, which historically caused the loop to skip the n=INT_MIN
+	// case and miss a valid shift opportunity. Use an unsigned shift
+	// and compare against the unsigned representation of n.
+	unsigned un = static_cast<unsigned>(n);
 	for( shift=0;shift<32;++shift ){
-		if( (1<<shift)==n ) return true;
+		if( (1u<<shift)==un ) return true;
 	}
 	return false;
 }
