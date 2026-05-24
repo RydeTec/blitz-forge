@@ -49,11 +49,17 @@ static inline bool debugBank( bbBank *b,const char* a ){
 }
 
 static inline bool debugBank( bbBank *b,int offset,const char* a ){
+	// Negative offsets used to skip the bound check entirely (the size
+	// comparison is signed; a negative `offset` is < `b->size` so passes).
+	// Combined with `bbCopyBank`'s `src_p+count-1` arithmetic that meant
+	// `count <= 0` could feed `memmove` a wrapped huge size_t and copy
+	// gigabytes -- arbitrary read/write from inside a Blitz program.
+	// Reject negative offsets up front.
 	if( debug ){
 		if (!debugBank( b,"" )) {
 			return false;
 		}
-		if( offset>=b->size ) {
+		if( offset<0 || offset>=b->size ) {
 			RTEX( "Offset out of range" );
 			return false;
 		}
@@ -61,7 +67,7 @@ static inline bool debugBank( bbBank *b,int offset,const char* a ){
 		if (!debugBank( b,a )) {
 			return false;
 		}
-		if( offset>=b->size ) {
+		if( offset<0 || offset>=b->size ) {
 			errorLog.push_back( std::string(a)+std::string(": Offset out of range"));
 			return false;
 		}
@@ -90,10 +96,19 @@ void  bbResizeBank( bbBank *b,int size ){
 }
 
 void  bbCopyBank( bbBank *src,int src_p,bbBank *dest,int dest_p,int count ){
-	//if( debug ){
+	// Round 4 audit: this used to validate `src_p+count-1` and
+	// `dest_p+count-1` directly. A negative `count` produced a negative
+	// composite that bypassed the bound check (since
+	// `src_p+count-1 < b->size` trivially holds for huge negatives), and
+	// `memmove(..., count)` casts count to size_t -- so negative count
+	// becomes a huge positive copy size and reads/writes far past either
+	// bank, an arbitrary read/write primitive from inside a Blitz
+	// program. Reject up front.
+	if( count <= 0 ) return;
+	if (!debugBank( src,src_p,"CopyBank (src)" )) return;
 	if (!debugBank( src,src_p+count-1,"CopyBank (src)" )) return;
+	if (!debugBank( dest,dest_p,"CopyBank (dest)")) return;
 	if (!debugBank( dest,dest_p+count-1,"CopyBank (dest)")) return;
-	//}
 	memmove( dest->data+dest_p,src->data+src_p,count );
 }
 
