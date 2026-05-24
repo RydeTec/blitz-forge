@@ -6,6 +6,12 @@
 gxTimer::gxTimer( gxRuntime *rt,int hertz ):
 runtime(rt),ticks_get(0),ticks_put(0){
 	event=CreateEvent( 0,false,false,0 );
+	// CreateTimer hertz comes from user Blitz code (CreateTimer hz).
+	// `timeSetEvent( 1000/hertz, ... )` would crash on hertz=0 and
+	// produce a runaway 1ms timer on negative values (signed div).
+	// Clamp to [1, 1000] before the divisor and the timer period.
+	if (hertz < 1) hertz = 1;
+	if (hertz > 1000) hertz = 1000;
 	timerID=timeSetEvent( 1000/hertz,0,timerCallback,(DWORD)this,TIME_PERIODIC );
 }
 
