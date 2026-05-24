@@ -643,6 +643,18 @@ Texture *  bbCreateTexture( int w,int h,int flags,int frames ){
 		} else {
 			errorLog.push_back(std::string("CreateTexture: Illegal number of texture frames"));
 		}
+		// Refuse to allocate a Texture with frames<=0; the underlying
+		// driver path either over-allocates (negative -> huge size_t
+		// cast) or no-ops then crashes on the first frame access.
+		return 0;
+	}
+	if ( w<=0 || h<=0 ){
+		if (debug) {
+			RTEX( "Illegal texture dimensions" );
+		} else {
+			errorLog.push_back(std::string("CreateTexture: Illegal texture dimensions"));
+		}
+		return 0;
 	}
 	Texture *t=d_new Texture( w,h,flags,frames );
 	texture_set.insert( t );
@@ -770,11 +782,11 @@ Brush *  bbCreateBrush( float r,float g,float b ){
 Brush *  bbLoadBrush( BBStr *file,int flags,float u_scale,float v_scale ){
 	if (!debug3d("LoadBrush")) return 0;
 	Texture t( *file,flags );
-	delete file;if( !t.getCanvas(0) ) return 0;
+	delete file;
+	if( !t.getCanvas(0) ) return 0;
 	if( u_scale!=1 || v_scale!=1 ) t.setScale( 1/u_scale,1/v_scale );
 	Brush *br=bbCreateBrush( 255,255,255 );
 	br->setTexture( 0,t,0 );
-	delete file;
 	return br;
 }
 
@@ -1247,6 +1259,10 @@ int  bbCameraProject( Camera *c,float x,float y,float z ){
 		float fr=c->getFrustumFar();
 		float nr_w=c->getFrustumWidth();
 		float nr_h=c->getFrustumHeight();
+		// Frustum width/height of 0 (or near-0) leaves the divide
+		// producing +/-inf and ProjectedX/Y returning NaN forever. Bail
+		// rather than poison subsequent draws.
+		if( nr_w<1e-8f || nr_h<1e-8f ){ projected=Vector(); return 0; }
 		projected=Vector( (v.x/nr_w+.5f)*vp_w,(.5f-v.y/nr_h)*vp_h,nr );
 		return 1;
 	}
@@ -1259,7 +1275,8 @@ int  bbCameraProject( Camera *c,float x,float y,float z ){
 			float fr=c->getFrustumFar();
 			float nr_w=c->getFrustumWidth();
 			float nr_h=c->getFrustumHeight();
-			projected=Vector( 
+			if( nr_w<1e-8f || nr_h<1e-8f ){ projected=Vector(); return 0; }
+			projected=Vector(
 				(v.x*nr/v.z/nr_w+.5f)*vp_w,
 				(.5f-v.y*nr/v.z/nr_h)*vp_h,nr );
 			return 1;
@@ -1580,6 +1597,11 @@ static Vector terrainVector( Terrain *t,float x,float y,float z ){
 
 Entity *  bbCreateTerrain( int n,Entity *p ){
 	if (!debugParent(p,"CreateTerrain")) return 0;
+	// Guard before the shift loop: n<=0 would spin until shift>=31 and
+	// then (1<<shift) silently wraps to INT_MIN, leaving the != check
+	// satisfied only by chance and the allocated Terrain unusable.
+	if( n<=0 ) RTEX( "Illegal terrain size" );
+	if( n>4096 ) RTEX( "Illegal terrain size" );
 	int shift=0;
 	while( (1<<shift)<n ) ++shift;
 	if( (1<<shift)!=n ) RTEX( "Illegal terrain size" );

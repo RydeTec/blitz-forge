@@ -179,7 +179,14 @@ static gxCanvas *tformCanvas( gxCanvas *c,float m[2][2],int x_handle,int y_handl
 
 	vec2 v,v0,v1,v2,v3;
 	float i[2][2];
-	float dt=1.0f/(m[0][0]*m[1][1]-m[1][0]*m[0][1]);
+	// A degenerate transform (e.g. ScaleImage by 0, or a 90deg rotation
+	// that collapsed to a singular matrix via precision loss) sends det
+	// to 0 and the inverse to +/-inf. Refuse and return null so callers
+	// surface this as a no-op rather than rendering garbage from a
+	// poisoned canvas.
+	float det = m[0][0]*m[1][1]-m[1][0]*m[0][1];
+	if( det>-1e-8f && det<1e-8f ) return 0;
+	float dt=1.0f/det;
 	i[0][0]=dt*m[1][1];i[1][0]=-dt*m[1][0];
 	i[0][1]=-dt*m[0][1];i[1][1]=dt*m[0][0];
 
@@ -686,6 +693,7 @@ gxMovie *bbOpenMovie( BBStr *s ){
 }
 
 int bbDrawMovie( gxMovie *movie,int x,int y,int w,int h ){
+	if( !movie ) return 0;
 	if( w<0 ) w=movie->getWidth();
 	if( h<0 ) h=movie->getHeight();
 	int playing=movie->draw( gx_canvas,x,y,w,h );
@@ -694,18 +702,22 @@ int bbDrawMovie( gxMovie *movie,int x,int y,int w,int h ){
 }
 
 int bbMovieWidth( gxMovie *movie ){
+	if( !movie ) return 0;
 	return movie->getWidth();
 }
 
 int bbMovieHeight( gxMovie *movie ){
+	if( !movie ) return 0;
 	return movie->getHeight();
 }
 
 int bbMoviePlaying( gxMovie *movie ){
+	if( !movie ) return 0;
 	return movie->isPlaying();
 }
 
 void bbCloseMovie( gxMovie *movie ){
+	if( !movie ) return;
 	gx_graphics->closeMovie( movie );
 }
 
