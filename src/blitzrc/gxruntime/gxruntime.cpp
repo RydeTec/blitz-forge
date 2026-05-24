@@ -679,6 +679,14 @@ int gxRuntime::execute( const string &cmd_line, const string& provided_params, c
 
 	SetForegroundWindow( GetDesktopWindow() );
 
+	// Bind the working-directory string to a named local first. The
+	// previous form `start_dir.size() ? start_dir.c_str() : getCWD().c_str()`
+	// took the c_str() of a temporary std::string returned by
+	// getCurrentWorkingDirectory(); the temporary was destroyed at the
+	// end of the full-expression, leaving lpDirectory pointing into
+	// freed memory by the time ShellExecuteEx ran.
+	std::string workingDir = start_dir.size() ? start_dir : getCurrentWorkingDirectory();
+
 	SHELLEXECUTEINFO ShExecInfo = { 0 };
 	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
 	ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
@@ -686,7 +694,7 @@ int gxRuntime::execute( const string &cmd_line, const string& provided_params, c
 	ShExecInfo.lpVerb = "open"; // Use "open" to open files/applications, "runas" to elevate, etc.
 	ShExecInfo.lpFile = cmd.c_str(); // Specify the program to execute
 	ShExecInfo.lpParameters = params.size() ? params.c_str() : ""; // Any parameters if necessary
-	ShExecInfo.lpDirectory = start_dir.size() ? start_dir.c_str() : getCurrentWorkingDirectory().c_str(); // Set the working directory here
+	ShExecInfo.lpDirectory = workingDir.c_str(); // Set the working directory here
 	ShExecInfo.nShow = SW_SHOW;
 	ShExecInfo.hInstApp = NULL;
 

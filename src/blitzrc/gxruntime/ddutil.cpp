@@ -168,12 +168,26 @@ void ddUtil::buildMipMaps( ddSurf *surf ){
 	while( src->GetAttachedSurface( &caps,&dest )>=0 ){
 
 		DDSURFACEDESC2 src_desc={sizeof(src_desc)};
-		if( src->Lock( 0,&src_desc,DDLOCK_WAIT,0 )<0 ) abort();
+		// Lock failure is common in practice -- alt-tabbing puts the
+		// DirectDraw surfaces into a "lost" state and Lock returns
+		// DDERR_SURFACELOST. The previous code called abort() which
+		// terminated the user's app with no warning every time they
+		// alt-tabbed during a mip-map rebuild. Bail out of the loop
+		// instead; the surface manager will recreate the mip chain
+		// on the next restore().
+		if( src->Lock( 0,&src_desc,DDLOCK_WAIT,0 )<0 ){
+			dest->Release();
+			return;
+		}
 		unsigned char *src_p=(unsigned char*)src_desc.lpSurface;
 		PixelFormat src_fmt( src_desc.ddpfPixelFormat );
 
 		DDSURFACEDESC2 dest_desc={sizeof(dest_desc)};
-		if( dest->Lock( 0,&dest_desc,DDLOCK_WAIT,0 )<0 ) abort();
+		if( dest->Lock( 0,&dest_desc,DDLOCK_WAIT,0 )<0 ){
+			src->Unlock( 0 );
+			dest->Release();
+			return;
+		}
 		unsigned char *dest_p=(unsigned char *)dest_desc.lpSurface;
 		PixelFormat dest_fmt( dest_desc.ddpfPixelFormat );
 
