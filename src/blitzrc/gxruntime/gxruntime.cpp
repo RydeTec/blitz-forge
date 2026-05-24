@@ -1279,7 +1279,20 @@ int gxRuntime::callDll( const std::string &dll,const std::string &func,const voi
 		fun_it=t->funcs.insert( make_pair( func,f ) ).first;
 	}
 
-	static void *save_esp;
+	// Saved ESP must be per-call, not a function-static. The original
+	// `static void *save_esp` lived in BSS, so:
+	//   - Recursive callDll (a user library that calls back into a
+	//     Blitz userlib which fires another callDll) clobbered the
+	//     outer call's saved ESP with the inner call's; on inner
+	//     return the outer's restore set ESP to the inner's saved
+	//     value -- stack pointer permanently off.
+	//   - Two threads calling callDll concurrently raced on the same
+	//     slot.
+	// Local stack variable: each invocation owns its own slot, and
+	// EBP-relative addressing (the project builds with /Oy-, so frame
+	// pointers are preserved) keeps the restore site readable even
+	// after the callee returns with an unbalanced ESP.
+	void *save_esp;
 
 	_asm{
 		mov	[save_esp],esp
