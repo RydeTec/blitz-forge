@@ -38,8 +38,17 @@ static int next_handle;
 static map<int,BBObj*> handle_map;
 static map<BBObj*,int> object_map;
 
-//reference counts
-static map<int, int> reference_map;
+//reference counts. The slot also carries a type label set at object
+//creation time so _bbRelease can dispatch to the correct destructor
+//even when called via a path that has lost the static type (notably
+//BBList elements, which are type-erased ints once they live inside
+//the std::vector). The label is a `const char*` to a static string
+//literal -- never copied, never freed.
+struct RefSlot {
+	int count;
+	const char *type;
+};
+static map<int, RefSlot> reference_map;
 
 //garbage collection switch
 static bool gcEnabled = false;
@@ -710,7 +719,22 @@ int _bbReference(int vPtr) {
 	}
 
 	//cout << "added ref " << vPtr << endl;
-	++reference_map[vPtr];
+	++reference_map[vPtr].count;
+	return vPtr;
+}
+
+// Like _bbReference but also stamps the type label on first
+// registration. Used at object-creation sites that know the static
+// type (e.g. _bbNewVector tags "BBList"). Subsequent _bbReference
+// calls on the same pointer preserve the original label.
+int _bbReferenceTyped(int vPtr, const char *type) {
+	if (vPtr == 0) {
+		return 0;
+	}
+
+	RefSlot &slot = reference_map[vPtr];
+	++slot.count;
+	if (slot.type == nullptr) slot.type = type;
 	return vPtr;
 }
 
@@ -732,19 +756,28 @@ int _bbRelease(int vPtr, const char *s) {
 		return vPtr;
 	}
 
-	int count = --(it->second);
+	int count = --(it->second.count);
 
 	if (count < 1) {
+		// Prefer the type stamped at creation time over the caller-
+		// supplied label `s`. Callers that have lost the element's
+		// static type (e.g. _bbVectorRelease, which is dispatched
+		// from inside a type-erased BBList) pass a best-effort
+		// fallback; the registered type is authoritative. Without
+		// this, lists-of-lists drove _bbObjDelete on a vector
+		// pointer (undefined behaviour, see ListTest's
+		// testEmbeddedLists).
+		const char *actualType = it->second.type ? it->second.type : s;
 		reference_map.erase(it);
 
 		if (gcEnabled && count == 0) {
 			//cout << "deleting ref" << endl;
-			if (strcmp(s, "BBCustom") == 0) {
+			if (strcmp(actualType, "BBCustom") == 0) {
 				void* objPtr = reinterpret_cast<void*>(vPtr);
 				BBObj* obj = static_cast<BBObj*>(objPtr);
 
 				_bbObjDelete(obj);
-			} else if (strcmp(s, "BBList") == 0) {
+			} else if (strcmp(actualType, "BBList") == 0) {
 				_bbVectorFree(vPtr);
 			}
 		}
@@ -758,14 +791,18 @@ int _bbReferenceCount(int vPtr) {
 		return 0;
 	}
 
-	return reference_map[vPtr];
+	return reference_map[vPtr].count;
 }
 
 int _bbNewVector() {
 	std::vector<int>* newVec = new std::vector<int>;
 	++listCnt;
 	int ptr = reinterpret_cast<int>(newVec);
-	_bbReference(ptr);
+	// Stamp the type at creation so _bbRelease dispatches via
+	// _bbVectorFree even when the eventual release comes through a
+	// type-erased path (e.g. an outer list freeing its inner-list
+	// elements as nominal "BBCustom").
+	_bbReferenceTyped(ptr, "BBList");
 	return ptr;
 }
 
@@ -803,19 +840,13 @@ int _bbVectorAt(int aPtr, int idx) {
 void _bbVectorRelease(int aPtr, int idx) {
 	int ptr = _bbVectorAt(aPtr, idx);
 	if (ptr != 0) {
-		// NOTE: BBList is type-erased; the element pointer here could be a
-		// BBObj, BBList, BBBank, or any other refcounted handle. The legacy
-		// dynamic_cast<BBObj*> on a non-polymorphic struct is undefined
-		// behaviour, so the value of the cast was effectively "always succeed"
-		// — i.e. every element was released as BBCustom. That works for
-		// BBObj-only lists (the common case) and is what existing tests
-		// assume; lists holding non-BBObj elements (e.g. lists of lists)
-		// invoke _bbObjDelete on garbage memory and may crash. A proper fix
-		// requires per-element type tagging or a runtime label dispatch in
-		// _bbRelease covering all BlitzTypes; both are tracked separately.
-		// For now: keep the existing "release as BBCustom" semantics but
-		// drop the meaningless dynamic_cast so the intent is honest in the
-		// source.
+		// BBList is type-erased; the element pointer here could be a
+		// BBObj, an inner BBList, or any other refcounted handle. We
+		// pass "BBCustom" as a fallback for legacy BBObj-of-X lists,
+		// but _bbRelease prefers the type stamped at object creation
+		// time (e.g. "BBList" for nested lists), so this path now
+		// dispatches correctly for lists-of-lists instead of running
+		// _bbObjDelete on a std::vector pointer.
 		_bbRelease(ptr, "BBCustom");
 	}
 }
