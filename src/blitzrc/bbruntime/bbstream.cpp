@@ -73,8 +73,16 @@ BBStr *bbReadString( bbStream *s ){
 			return str;
 		}
 		char *buff=d_new char[len];
-		if( s->read( buff,len ) ){
-			*str=string( buff,len );
+		// Capture the actual byte count returned by read() and bound the
+		// resulting string to it. Previously the code used `len`
+		// unconditionally, so a short / truncated read left the tail of
+		// `buff` uninitialised and `string(buff, len)` then captured
+		// whatever bytes the allocator handed us -- a stack/heap info
+		// leak into BASIC string content.
+		int got = s->read( buff, len );
+		if( got > 0 ){
+			if( got > len ) got = len;
+			*str=string( buff, got );
 		}
 		delete[] buff;
 	}
