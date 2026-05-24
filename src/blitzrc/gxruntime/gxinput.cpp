@@ -94,8 +94,21 @@ public:
 				continue;
 			}
 			mins[k]=range.lMin;
-			maxs[k]=range.lMax-range.lMin;
+			// Clamp the divisor to at least 1: some buggy drivers /
+			// disconnected axes report lMax == lMin which would have
+			// produced a 0 maxs and a divide-by-zero (or Inf) in
+			// update() below.
+			int delta=range.lMax-range.lMin;
+			if( delta<1 ) delta=1;
+			maxs[k]=delta;
 		}
+	}
+	// Centre-deadzone tolerance for analog sticks. Treat any axis
+	// value within +/- 0.08 of zero as 0 -- common drift on aging
+	// sticks produces stuck-axis input otherwise.
+	static float applyDeadzone( float v ){
+		if( v > -0.08f && v < 0.08f ) return 0.0f;
+		return v;
 	}
 	void update(){
 		unsigned tm=timeGetTime();
@@ -108,14 +121,19 @@ public:
 		poll_time=tm;
 		DIJOYSTATE state;
 		if( device->GetDeviceState( sizeof( state ),&state )<0 ) return;
-		axis_states[0]=(state.lX-mins[0])/(float)maxs[0]*2-1;
-		axis_states[1]=(state.lY-mins[1])/(float)maxs[1]*2-1;
-		axis_states[2]=(state.lZ-mins[2])/(float)maxs[2]*2-1;
-		axis_states[3]=(state.rglSlider[0]-mins[6])/(float)maxs[6]*2-1;
-		axis_states[4]=(state.rglSlider[1]-mins[7])/(float)maxs[7]*2-1;
-		axis_states[5]=(state.lRx-mins[3])/(float)maxs[3]*2-1;
-		axis_states[6]=(state.lRy-mins[4])/(float)maxs[4]*2-1;
-		axis_states[7]=(state.lRz-mins[5])/(float)maxs[5]*2-1;
+		// Convert to float *before* subtracting so a full-range axis
+		// (lMin = INT_MIN, lMax = INT_MAX) doesn't overflow the
+		// integer subtraction. The previous form
+		// `(state.lX - mins[0]) / (float)maxs[0]` computed the
+		// subtraction in int and then promoted, silently wrapping.
+		axis_states[0]=applyDeadzone( ((float)state.lX-(float)mins[0])/(float)maxs[0]*2.0f-1.0f );
+		axis_states[1]=applyDeadzone( ((float)state.lY-(float)mins[1])/(float)maxs[1]*2.0f-1.0f );
+		axis_states[2]=applyDeadzone( ((float)state.lZ-(float)mins[2])/(float)maxs[2]*2.0f-1.0f );
+		axis_states[3]=applyDeadzone( ((float)state.rglSlider[0]-(float)mins[6])/(float)maxs[6]*2.0f-1.0f );
+		axis_states[4]=applyDeadzone( ((float)state.rglSlider[1]-(float)mins[7])/(float)maxs[7]*2.0f-1.0f );
+		axis_states[5]=applyDeadzone( ((float)state.lRx-(float)mins[3])/(float)maxs[3]*2.0f-1.0f );
+		axis_states[6]=applyDeadzone( ((float)state.lRy-(float)mins[4])/(float)maxs[4]*2.0f-1.0f );
+		axis_states[7]=applyDeadzone( ((float)state.lRz-(float)mins[5])/(float)maxs[5]*2.0f-1.0f );
 		if( (state.rgdwPOV[0]&0xffff)==0xffff ) axis_states[8]=-1;
 		else axis_states[8]=floor(state.rgdwPOV[0]/100.0f+.5f);
 
