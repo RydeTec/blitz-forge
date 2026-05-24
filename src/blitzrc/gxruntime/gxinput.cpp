@@ -162,13 +162,19 @@ static Keyboard *createKeyboard( gxInput *input ){
 				dword.dwData=32;
 				if( dev->SetProperty( DIPROP_BUFFERSIZE,&dword.diph )>=0 ){
 					return d_new Keyboard( input,dev );
-				}else{
-//					input->runtime->debugInfo( "keyboard: SetProperty failed" );
 				}
+				input->runtime->debugInfo( "keyboard: SetProperty failed" );
 			}else{
-//				input->runtime->debugInfo( "keyboard: SetDataFormat failed" );
+				input->runtime->debugInfo( "keyboard: SetDataFormat failed" );
 			}
-			return d_new Keyboard( input,dev );
+			// Either SetDataFormat or SetProperty failed: the device is
+			// not actually configured for the c_dfDIKeyboard format, so
+			// GetDeviceState / SetEventNotification calls on it would
+			// return junk or fail. Release here instead of returning a
+			// half-configured Keyboard wrapper that callers cannot tell
+			// apart from a working one.
+			dev->Release();
+			return 0;
 
 		}else{
 			input->runtime->debugInfo( "keyboard: SetCooperativeLevel failed" );
@@ -187,10 +193,14 @@ static Mouse *createMouse( gxInput *input ){
 
 			if( dev->SetDataFormat( &c_dfDIMouse )>=0 ){
 				return d_new Mouse( input,dev );
-			}else{
-//				input->runtime->debugInfo( "mouse: SetDataFormat failed" );
 			}
-			return d_new Mouse( input,dev );
+			input->runtime->debugInfo( "mouse: SetDataFormat failed" );
+			// Same rationale as the keyboard path: an unconfigured device
+			// can't be polled safely; release and surface the failure to
+			// the caller rather than returning a Mouse wrapper that looks
+			// functional but never produces real input state.
+			dev->Release();
+			return 0;
 
 		}else{
 			input->runtime->debugInfo( "mouse: SetCooperativeLevel failed" );
