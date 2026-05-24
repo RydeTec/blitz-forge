@@ -610,16 +610,37 @@ T _bbCallFunctionPointer(BBFunction<T> functionPtr, va_list args) {
 	return returnValue;
 }
 
+// KNOWN BUG: on MSVC x86 `va_list` is a `char*` into the *caller's*
+// stack frame. `std::async(std::launch::async, functionPtr, args)`
+// decay-copies the pointer into the worker task, but the worker
+// reads through it after this function has returned and the
+// caller's frame may have been torn down. That's a use-after-free
+// with intermittent symptoms: works in FunctionPointerTest's tight
+// Async-then-Poll-then-Await loops because the launching frame is
+// still live, fails the moment the async handle escapes its
+// launching function (e.g. caller stores the BBThread in a global
+// and returns).
+//
+// The fix needs codegen to plumb a sized args buffer across the
+// boundary so the worker has a self-contained copy. Until that
+// lands, callers should treat the async API as "must Await before
+// the launching function returns" and not store handles long-term.
+//
+// (Also note: the ESP save/restore brackets a `new` and a
+// `std::async` -- both are C++ calls that should not need stack-
+// pointer rescue, but the asm is preserved for now because removing
+// it interacts with the va_list ABI in ways that warrant a focused
+// look in the same future codegen PR.)
 template<typename T>
 int _bbAsyncCallFunctionPointer(BBFunction<T> functionPtr, va_list args) {
 	int32_t StackPointer;
-	
+
 	__asm { // Store Stack Pointer
 		mov StackPointer, esp;
 	}
 
 	// Create a std::future<int> and store it in a dynamically allocated object
-    std::future<T>* futurePtr = new std::future<T>(std::async(std::launch::async, functionPtr, args));
+	std::future<T>* futurePtr = new std::future<T>(std::async(std::launch::async, functionPtr, args));
 
 	__asm { // Restore Stack Pointer
 		mov esp, StackPointer;
@@ -628,26 +649,29 @@ int _bbAsyncCallFunctionPointer(BBFunction<T> functionPtr, va_list args) {
 	va_end(args);
 
 	// Return the pointer as intptr_t
-    return reinterpret_cast<int>(futurePtr);
+	return reinterpret_cast<int>(futurePtr);
 }
 
 template<typename T>
 T _bbAwaitAsyncCall(int threadPtr) {
-	// Convert the intptr_t back to a std::future<int>* and get the result
-    std::future<T>* futurePtr = reinterpret_cast<std::future<T>*>(threadPtr);
-    T result = futurePtr->get();
-
-    // Clean up the dynamically allocated memory
-    delete futurePtr;
-
-    return result;
+	std::future<T>* futurePtr = reinterpret_cast<std::future<T>*>(threadPtr);
+	// Guard against null / sentinel handle. Doesn't prevent the
+	// double-Await UAF (caller still holds the original int value
+	// after we delete) but at least bails on the obvious mis-use.
+	if (futurePtr == nullptr) {
+		return T();
+	}
+	T result = futurePtr->get();
+	delete futurePtr;
+	return result;
 }
 
 template<typename T>
 int _bbPollAsyncCall(int threadPtr) {
-	// Convert the intptr_t back to a std::future<int>* and get the result
-    std::future<T>* futurePtr = reinterpret_cast<std::future<T>*>(threadPtr);
-
+	std::future<T>* futurePtr = reinterpret_cast<std::future<T>*>(threadPtr);
+	if (futurePtr == nullptr) {
+		return 1;  // null handle: "ready" so the caller stops polling
+	}
 	return futurePtr->wait_for(std::chrono::milliseconds(1)) == std::future_status::ready;
 }
 
@@ -655,8 +679,18 @@ int _bbAsyncThenCall(va_list threadPtr, BBFunction<int> functionPtr) {
 	return _bbAsyncCallFunctionPointer(functionPtr, threadPtr);
 }
 
+// Wrap thrown payloads in a tagged struct so `catch` doesn't
+// accidentally claim stray `char*` exceptions thrown from elsewhere
+// (e.g. `throw "literal"` or compiler-generated `bad_alloc` paths
+// that wind up looking like `char*` because `va_list` IS `char*` on
+// this target).
+struct _BBThrown {
+	va_list payload;
+};
+
 void _bbThrow(va_list args) {
-	throw args; // Simply throw the error code as an exception
+	_BBThrown e{ args };
+	throw e;
 }
 
 template<typename T>
@@ -664,9 +698,9 @@ int _bbTryCatch(BBFunction<T> t_ptr, BBFunction<T> c_ptr, va_list args) {
 	try {
 		// Call the try function with the provided arguments
 		return _bbCallFunctionPointer(t_ptr, args);
-	} catch (va_list catch_args) {
+	} catch (const _BBThrown& thrown) {
 		// Call the catch function with the error code
-		return _bbCallFunctionPointer(c_ptr, catch_args);
+		return _bbCallFunctionPointer(c_ptr, thrown.payload);
 	}
 }
 
