@@ -168,10 +168,18 @@ gxMovie *gxGraphics::openMovie( const string &file,int flags ){
 
 				iam_stream->AddMediaStream( NULL,&MSPID_PrimaryAudio,AMMSF_ADDDEFAULTRENDERER,NULL );
 
-				WCHAR *path=new WCHAR[ file.size()+1 ];
-				MultiByteToWideChar( CP_ACP,0,file.c_str(),-1,path,sizeof(WCHAR)*(file.size()+1) );
-				int n=iam_stream->OpenFile( path,0 );
-				delete path;
+				// MultiByteToWideChar's 6th arg is the destination buffer
+				// size *in WCHARs*, not bytes. Passing
+				// sizeof(WCHAR)*(file.size()+1) over-counted by 2x and let
+				// MBToWC write past the buffer when the input length was
+				// near the boundary. The matching `delete path` (not
+				// `delete[]`) leaked the path on every Movie open AND was
+				// UB per the C++ standard (mismatched new[]/delete).
+				int wbufSize = (int)file.size() + 1;
+				WCHAR *path = new WCHAR[ wbufSize ];
+				MultiByteToWideChar( CP_ACP, 0, file.c_str(), -1, path, wbufSize );
+				int n = iam_stream->OpenFile( path, 0 );
+				delete[] path;
 
 				if( n==S_OK ){
 					gxMovie *movie=d_new gxMovie( this,iam_stream );
