@@ -553,6 +553,10 @@ BBStr *_bbObjTypeName( int ptr ){
 }
 
 int _bbAssertTrue(int t) {
+	// Round 4 audit: return semantics used to be `t > 0` which reports
+	// a *negative* int as failed (a perfectly valid truthy value in Blitz,
+	// e.g. the -1 result of a "True" comparison). Treat any non-zero
+	// value as truthy, matching the Blitz convention everywhere else.
 	if (t == 0) {
 		if (test) {
 			gx_runtime->testFailed = true;
@@ -566,7 +570,7 @@ int _bbAssertTrue(int t) {
 			gx_runtime->debugLog("Failed assertion.");
 		}
 	}
-	return t > 0;
+	return t != 0;
 }
 
 int _bbGetFunctionPointer() {
@@ -681,11 +685,23 @@ int _bbRelease(int vPtr, const char *s) {
 		return 0;
 	}
 
-	//cout << "released ref " << vPtr << " " << s << endl;
-	int count = --reference_map[vPtr];
+	// Round 4 audit: `int count = --reference_map[vPtr]` used to default-
+	// construct the slot to 0 when vPtr had never been referenced, then
+	// decrement to -1 -- which trips `count < 1` and (with GC on) frees
+	// memory that the refcount system never owned. That happened any time
+	// a release path ran against a stale handle, an uninitialised local,
+	// or an object assigned from outside the refcount machinery. Now
+	// treat "not present" as a no-op rather than synthesising an erroneous
+	// release.
+	auto it = reference_map.find(vPtr);
+	if (it == reference_map.end()) {
+		return vPtr;
+	}
+
+	int count = --(it->second);
 
 	if (count < 1) {
-		reference_map.erase(vPtr);
+		reference_map.erase(it);
 
 		if (gcEnabled && count == 0) {
 			//cout << "deleting ref" << endl;
