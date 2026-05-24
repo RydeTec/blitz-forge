@@ -693,12 +693,25 @@ int _bbAsyncThenCall(va_list threadPtr, BBFunction<int> functionPtr) {
 // (e.g. `throw "literal"` or compiler-generated `bad_alloc` paths
 // that wind up looking like `char*` because `va_list` IS `char*` on
 // this target).
+//
+// payload[] holds an inline copy of the throw arguments rather than
+// the original va_list. On MSVC x86, va_list is `char*` into the
+// caller's stack frame; the C++ unwind tears that frame down before
+// the catch site runs, so storing the raw va_list yields a dangling
+// pointer that "happens to work" until allocation patterns shift.
+// The Throw protocol in this language is one BBPointer per call
+// (`Throw(BBPointer)dto` in basic.cpp's rtSym table), so a single
+// 4-byte slot is exact -- no oversize and no truncation. The catch
+// site reinterprets &payload[0] as a va_list, which is well-defined
+// on this target where va_list is just a `char*` cursor.
 struct _BBThrown {
-	va_list payload;
+	int payload[1];
 };
 
 void _bbThrow(va_list args) {
-	_BBThrown e{ args };
+	_BBThrown e;
+	e.payload[0] = va_arg(args, int);
+	va_end(args);
 	throw e;
 }
 
@@ -708,8 +721,12 @@ int _bbTryCatch(BBFunction<T> t_ptr, BBFunction<T> c_ptr, va_list args) {
 		// Call the try function with the provided arguments
 		return _bbCallFunctionPointer(t_ptr, args);
 	} catch (const _BBThrown& thrown) {
-		// Call the catch function with the error code
-		return _bbCallFunctionPointer(c_ptr, thrown.payload);
+		// Call the catch function with the error code. The cast is
+		// safe on this target: va_list is `char*`, the callee reads
+		// one int from the buffer, and `thrown` outlives the call
+		// because we catch by reference and dispatch synchronously
+		// in this scope.
+		return _bbCallFunctionPointer(c_ptr, (va_list)thrown.payload);
 	}
 }
 
