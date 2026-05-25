@@ -799,6 +799,19 @@ ExprNode *RecastNode::semant( Environ *e ){
 
 TNode *RecastNode::translate( Codegen *g ){
 	TNode *t=expr->translate( g );
+	// Runtime IS-A check against the target type's BBObjType. Recast
+	// is the explicit downcast syntax (e.g. Recast.SecondType(parent))
+	// and used to be a pure no-op -- the compiler just trusted that
+	// the caller knew the dynamic type. A wrong call quietly produced
+	// a misinterpreted pointer that surfaced as a corrupt field read
+	// pages later. _bbObjFromPointer walks the type's superType chain
+	// (see _bbObjIsKindOf in basic.cpp) and returns null on mismatch,
+	// matching the existing Object.X(ptr) semantics. Code that does
+	// `Recast.X(value)` followed by an unconditional field deref will
+	// now hit a clean Null deref instead of a stale-bytes read; the
+	// idiomatic pattern of checking `recasted = Null` afterwards keeps
+	// working.
+	t=call( "__bbObjFromPointer",t,global( "_t"+sem_type->structType()->ident ) );
 	return t;
 }
 

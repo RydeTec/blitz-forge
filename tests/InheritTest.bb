@@ -216,21 +216,23 @@ Test testDoubleCastUpIntegrity()
 End Test
 
 Test testIncorrectCrossCasting()
-    ; Cast down and cast up to wrong type
+    ; Cast down and cast up to a *sibling* type (SecondInherit and
+    ; Inherit both extend Base, but neither is a parent/child of the
+    ; other). Recast now does a runtime IS-A check against the
+    ; target's superType chain (matching Object.X(ptr) semantics), so
+    ; a sibling-cast that previously silently produced a pointer
+    ; with misaligned field offsets now returns Null. The caller is
+    ; expected to check for Null before dereferencing -- the
+    ; idiomatic pattern in the rest of the codebase.
     Local base2.Inherit = new Inherit()
     base2\baseVar = "foo"
     base2\inheritVar = "bar"
 
-    ; Cast down
+    ; Cast down to common parent.
     Local base5.Base = base2
 
-    ; Cast back up
+    ; Cast back up to the *wrong* sibling type. With the runtime
+    ; check this returns Null instead of reinterpreting the bytes.
     Local base9.SecondInherit = Recast.SecondInherit(base5)
-
-    Assert(base9\baseVar = "foo")
-
-    ; Because Recast is memory unsafe the secondInheritVar is in the second memory slot of the object
-    ; where inheritVar was so now the secondInheritVar is showing that value because it is referencing
-    ; the second memory slot.
-    Assert(base9\secondInheritVar = "bar")
+    Assert(base9 = Null)
 End Test
