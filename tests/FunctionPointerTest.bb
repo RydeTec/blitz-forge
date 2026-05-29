@@ -53,6 +53,7 @@ Function thirdTestFunction@( arg.BasicDTO=Null )
         return FunctionPtr()
     end if
 
+    delay 20
     Local var = arg\var + 1
     return new BasicDTO(var)
 End Function
@@ -66,6 +67,42 @@ Function fourthTestFunction@( threadPtr.BBThread=Null )
 
     Local var = result\var + 1
     return new BasicDTO(var)
+End Function
+
+Function launchAsyncIdentity.BBThread(dto.BasicDTO)
+    Local f_ptr.BBFunction = thirdTestFunction()
+    Return Async(f_ptr, dto)
+End Function
+
+Function launchAsyncThenIdentity.BBThread(dto.BasicDTO)
+    Local f_ptr.BBFunction = thirdTestFunction()
+    Local f_ptr_2.BBFunction = fourthTestFunction()
+    Local t_ptr.BBThread = Async(f_ptr, dto)
+    Return AsyncThen(t_ptr, f_ptr_2)
+End Function
+
+Function clobberFunctionPointerStack()
+    Local a0 = 100
+    Local a1 = 101
+    Local a2 = 102
+    Local a3 = 103
+    Local a4 = 104
+    Local a5 = 105
+    Local a6 = 106
+    Local a7 = 107
+
+    For i = 0 To 256
+        a0 = a0 + i
+        a1 = a1 + a0
+        a2 = a2 + a1
+        a3 = a3 + a2
+        a4 = a4 + a3
+        a5 = a5 + a4
+        a6 = a6 + a5
+        a7 = a7 + a6
+    Next
+
+    Assert(a7 <> 107)
 End Function
 
 Test testFunctionPointer()
@@ -154,4 +191,28 @@ Test testThen()
 
     Local result.BasicDTO = Await(t_ptr_2)
     Assert(result\var = 3)
+End Test
+
+Test testThreadPayloadOutlivesLauncher()
+    Local t1.BBThread = launchAsyncIdentity(new BasicDTO(101))
+    clobberFunctionPointerStack()
+    Local r1.BasicDTO = Await(t1)
+    Assert(r1\var = 102)
+
+    Local t2.BBThread = launchAsyncIdentity(new BasicDTO(202))
+    clobberFunctionPointerStack()
+    Local r2.BasicDTO = Await(t2)
+    Assert(r2\var = 203)
+End Test
+
+Test testThenPayloadOutlivesLauncher()
+    Local t1.BBThread = launchAsyncThenIdentity(new BasicDTO(11))
+    clobberFunctionPointerStack()
+    Local r1.BasicDTO = Await(t1)
+    Assert(r1\var = 13)
+
+    Local t2.BBThread = launchAsyncThenIdentity(new BasicDTO(22))
+    clobberFunctionPointerStack()
+    Local r2.BasicDTO = Await(t2)
+    Assert(r2\var = 24)
 End Test
