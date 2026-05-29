@@ -191,7 +191,7 @@ After that:
 
 ## Documentation
 
-- **[Language reference](help)** — every built-in command, organized by module.
+- **[Language reference](help)** — language concepts and keywords, including a [Modern Features](help/language/lang_ref_modern.html) page covering BlitzForge's additions (Strict, GC, inheritance, methods, function pointers, async, exceptions).
 - **[Tutorials](tutorials)** — guided walkthroughs.
 - **[Samples](samples)** and **[Games](games)** — runnable example projects.
 - **[VS Code extension](https://github.com/RydeTec/vscode-blitz-forge)** — syntax highlighting, build, debug, test.
