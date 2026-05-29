@@ -846,7 +846,7 @@ IfNode *Parser::parseIf(vector<string> localIdents){
 	if( toker->curr()==ELSEIF ){
 		int pos=toker->pos();
 		toker->next();
-		IfNode *ifnode=parseIf();
+		IfNode *ifnode=parseIf( localIdents );
 		ifnode->pos=pos;
 		elseOpt=d_new StmtSeqNode( incfile );
 		elseOpt->push_back( ifnode );
