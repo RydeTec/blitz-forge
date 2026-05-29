@@ -8,13 +8,56 @@ trap 'rm -rf "${TEST_TMPDIR}"' EXIT
 
 BLITZCC_UNIX="${ROOTDIR}/bin/blitzcc"
 BLITZCC_WIN="${ROOTDIR}/bin/blitzcc.exe"
+BLITZCC_IS_UNIX=0
 if [[ -x "${BLITZCC_UNIX}" ]]; then
   BLITZCC="${BLITZCC_UNIX}"
+  BLITZCC_IS_UNIX=1
 elif [[ -f "${BLITZCC_WIN}" ]]; then
   BLITZCC="${BLITZCC_WIN}"
 else
   echo "blitzcc not found; run ./compile.sh first." >&2
   exit 1
+fi
+
+FAILED=0
+
+run_isolated_cli_expect_success() {
+  local label="$1"
+  local expected="$2"
+  shift 2
+  local isolated_dir="${TEST_TMPDIR}/isolated-${label//[^A-Za-z0-9]/-}"
+  mkdir -p "${isolated_dir}"
+  cp "${BLITZCC}" "${isolated_dir}/blitzcc"
+  chmod +x "${isolated_dir}/blitzcc"
+
+  set +e
+  (
+    cd "${isolated_dir}"
+    ./blitzcc "$@"
+  ) > "${isolated_dir}/cli.out" 2> "${isolated_dir}/cli.err"
+  local rc=$?
+  set -e
+
+  if [[ "${rc}" -ne 0 ]]; then
+    echo "CLI contract FAILED: ${label} returned ${rc}" >&2
+    cat "${isolated_dir}/cli.out" >&2
+    cat "${isolated_dir}/cli.err" >&2
+    FAILED=1
+    return
+  fi
+
+  if [[ -n "${expected}" ]] && ! grep -q "${expected}" "${isolated_dir}/cli.out"; then
+    echo "CLI contract FAILED: ${label} did not print ${expected}" >&2
+    cat "${isolated_dir}/cli.out" >&2
+    cat "${isolated_dir}/cli.err" >&2
+    FAILED=1
+  fi
+}
+
+if [[ "${BLITZCC_IS_UNIX}" -eq 1 ]]; then
+  run_isolated_cli_expect_success "isolated -h works without DLLs" "Usage:" -h
+  run_isolated_cli_expect_success "isolated -v works without DLLs" "Compiler version:" -v
+  run_isolated_cli_expect_success "isolated bare invocation works without DLLs" ""
 fi
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -39,7 +82,6 @@ else
   EXEC_FLAG=()
 fi
 
-FAILED=0
 TARGET_SAMPLE="${TESTDIR}/NumberTest.bb"
 
 run_target_expect_success() {

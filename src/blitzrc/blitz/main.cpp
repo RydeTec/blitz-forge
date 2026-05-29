@@ -169,6 +169,10 @@ static void versInfo(){
 	cout<<"Linker version:"<<verstr(lnk_ver)<<endl;
 }
 
+static void compilerVersInfo(){
+	cout<<"Compiler version:"<<verstr(VERSION)<<endl;
+}
+
 static void demoError(){
 	cout<<"Compiler can not be used standalone in demo version."<<endl;
 	exit(0);
@@ -234,15 +238,6 @@ int _cdecl main( int argc,char *argv[] ){
 		}
 	}
 
-	if (debug) {
-		std::ifstream file("ATTACH", std::ifstream::ate | std::ifstream::binary);
-		if (file.good() && file.tellg() > 0) {
-			bfplatform::showInfoMessage(
-				"Attach Debugger",
-				"Execution is paused so a debugger can be attached if necessary. When you are ready to continue press ok.");
-		}
-	}
-	
 	if( out_file.size() && !in_file.size() ) usageErr();
 
 	if( target.size() ){
@@ -254,7 +249,22 @@ int _cdecl main( int argc,char *argv[] ){
 		target=hostDefaultTargetName();
 	}
 
-	if (in_file[0] == '\"') {
+	if( !in_file.size() && !dumpkeys ){
+		if( showhelp ) showHelp();
+		if( versinfo ) compilerVersInfo();
+		return 0;
+	}
+
+	if (debug) {
+		std::ifstream file("ATTACH", std::ifstream::ate | std::ifstream::binary);
+		if (file.good() && file.tellg() > 0) {
+			bfplatform::showInfoMessage(
+				"Attach Debugger",
+				"Execution is paused so a debugger can be attached if necessary. When you are ready to continue press ok.");
+		}
+	}
+	
+	if (in_file.size() && in_file[0] == '\"') {
 		if (in_file.size() < 3 || in_file[in_file.size() - 1] != '\"') usageErr();
 		in_file = in_file.substr(1, in_file.size() - 2);
 	}
