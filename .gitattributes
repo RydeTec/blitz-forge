@@ -1,0 +1,5 @@
+# Shell scripts and the corpus allowlist are executed/parsed by bash, including
+# on the Windows CI runner (shell: bash). Force LF so a CRLF checkout under
+# core.autocrlf=true cannot corrupt the shebang, script body, or allowlist lines.
+*.sh text eol=lf
+scripts/corpus_compile_allowlist.txt text eol=lf
