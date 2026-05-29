@@ -25,6 +25,11 @@ BBStr *bbRight( BBStr *s,int n ){
 
 BBStr *bbReplace( BBStr *s,BBStr *from,BBStr *to ){
 	int n=0,from_sz=(int)from->size(),to_sz=(int)to->size();
+	// An empty search string has no occurrence to replace. std::string::find("",n)
+	// returns n (never npos), so without this guard the loop below never terminates:
+	// with an empty `to` n never advances, and with a non-empty `to` the string grows
+	// in lockstep with n. Return s unchanged, matching least-surprise Blitz semantics.
+	if( from_sz==0 ){ delete from;delete to;return s; }
 	while( n<((int)s->size()) && (n=s->find( *from,n ))!=string::npos){
 		s->replace( n,from_sz,*to );
 		n+=to_sz;
