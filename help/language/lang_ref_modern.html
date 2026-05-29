@@ -1,0 +1,277 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<title>Language Reference - Modern Features</title>
+<link rel="stylesheet" href="lang_ref.css" type="text/css">
+</head>
+
+<body><br>
+&nbsp;<span class="Command">&nbsp;Modern Features&nbsp;</span>
+<blockquote>
+  <p>BlitzForge is drop-in source-compatible with classic Blitz3D, but adds a set
+    of modern language extensions. Everything on this page is <b>additive</b> &mdash;
+    existing programs keep working, and you opt in to the new features only where
+    you want them.</p>
+  <p>Every example below is taken from the BlitzForge test suite (the <i>tests/</i>
+    directory), so each one compiles and runs with the current toolchain. The test
+    file each feature is drawn from is noted alongside it.</p>
+
+  <p class="header">Strict mode</p>
+  <p>Placing <i>Strict</i> on the first line of a file turns on stricter checking:
+    variables must be declared (with <i>Local</i> or <i>Global</i>) before use, and
+    type rules are enforced more tightly. Strict is the gateway to the modern
+    feature set &mdash; most new code begins with it.</p>
+  <blockquote>
+    <p><i> Strict<br>
+      <br>
+      Local count% = 0<br>
+      count = count + 1<br>
+      Print count</i></p>
+  </blockquote>
+  <p>Strict is per file and is the recommended default for new code. Legacy
+    (non-Strict) programs continue to behave exactly as they did in Blitz3D.</p>
+
+  <p class="header">Garbage collection</p>
+  <p>BlitzForge can automatically reclaim type objects for you using reference
+    counting. Enable it with <i>EnableGC</i> (which requires Strict mode), and you
+    no longer have to <i>Delete</i> every object by hand. <i>DisableGC</i> turns it
+    back off, and <i>NoTrace</i> opts a file out of debug tracing.</p>
+  <blockquote>
+    <p><i> Strict<br>
+      EnableGC<br>
+      <br>
+      Type TestType<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Field var<br>
+      End Type<br>
+      <br>
+      Local t.TestType = New TestType()<br>
+      ; RefCount reports how many references currently keep an object alive<br>
+      Print RefCount( First TestType ) ; prints 1</i></p>
+  </blockquote>
+  <p>When the last reference to an object goes away, the object is released
+    automatically. <i>RefCount</i> lets you inspect the live reference count, which
+    is useful when reasoning about ownership. Note that reference cycles
+    (objects that point at each other) are not collected automatically &mdash; break
+    the cycle yourself, or avoid the back-reference. <i>(tests/GarbageCollectionTest.bb)</i></p>
+
+  <p class="header">Type inheritance</p>
+  <p>A type can extend another type by naming the parent with a <i>.</i> tag in its
+    declaration: <i>Type Child.Parent</i>. The child inherits the parent's fields and
+    can add its own. A child instance can be assigned to a variable of the parent
+    type (an implicit &quot;down-cast&quot; to a more general type).</p>
+  <blockquote>
+    <p><i> Strict<br>
+      EnableGC<br>
+      <br>
+      Type Base<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Field baseVar$<br>
+      End Type<br>
+      <br>
+      ; Inherit extends Base &mdash; it gets baseVar plus its own inheritVar<br>
+      Type Inherit.Base<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Field inheritVar$<br>
+      End Type<br>
+      <br>
+      Local child.Inherit = New Inherit()<br>
+      child\baseVar = "foo"&nbsp;&nbsp;&nbsp;&nbsp;; inherited field<br>
+      child\inheritVar = "bar"&nbsp;; own field<br>
+      <br>
+      ; Assigning a child to a parent-typed variable is allowed<br>
+      Local asBase.Base = child</i></p>
+  </blockquote>
+  <p><i>(tests/InheritTest.bb)</i></p>
+
+  <p class="header">Methods</p>
+  <p>Types can carry behaviour as well as data. A <i>Method</i> is a function that
+    runs against a particular instance, available inside the method as <i>self</i>.
+    Methods can be called dynamically on an instance (<i>instance\method(..)</i>) or
+    statically (<i>Type::method(instance, ..)</i>), and a child type can override a
+    parent's method.</p>
+  <blockquote>
+    <p><i> Strict<br>
+      EnableGC<br>
+      <br>
+      Type TestStruct<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Field testVar$<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Method testMethod( testArg$ )<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self\testVar = testArg<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;End Method<br>
+      End Type<br>
+      <br>
+      Local inst.TestStruct = New TestStruct()<br>
+      <br>
+      ; Dynamic call<br>
+      inst\testMethod( "buzz" )<br>
+      <br>
+      ; Static call &mdash; pass the instance explicitly<br>
+      TestStruct::testMethod( inst, "bar" )</i></p>
+  </blockquote>
+  <p>A common idiom is a <b>constructor method</b> that initialises fields and
+    returns <i>self</i>, so a type can be created and populated in one expression:</p>
+  <blockquote>
+    <p><i> Type ConstructorTest<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Field value1$<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Method create.ConstructorTest( value1$ )<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self\value1 = value1<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Return self<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;End Method<br>
+      End Type<br>
+      <br>
+      Local instance.ConstructorTest = New ConstructorTest( "value1" )</i></p>
+  </blockquote>
+  <p><i>(tests/MethodTest.bb)</i></p>
+
+  <p class="header">Recast</p>
+  <p>Assigning a child instance to a parent-typed variable is automatic, but going
+    back the other way &mdash; treating a parent-typed reference as the child type
+    again &mdash; needs an explicit <i>Recast</i>. <i>Recast.Type(expr)</i> performs a
+    runtime &quot;is-a&quot; check against the target type's inheritance chain: if the
+    object really is an instance of that type it is returned, otherwise <i>Recast</i>
+    returns <i>Null</i>. Always check for <i>Null</i> before dereferencing.</p>
+  <blockquote>
+    <p><i> Local child.Inherit = New Inherit()<br>
+      Local asBase.Base = child&nbsp;&nbsp;&nbsp;&nbsp;; down-cast (automatic)<br>
+      <br>
+      ; Up-cast back to the real type (explicit)<br>
+      Local backAgain.Inherit = Recast.Inherit( asBase )<br>
+      <br>
+      ; A cast to a type the object is NOT returns Null rather than<br>
+      ; reinterpreting the bytes:<br>
+      Local wrong.SecondInherit = Recast.SecondInherit( asBase )<br>
+      If wrong = Null Then Print "not a SecondInherit"</i></p>
+  </blockquote>
+  <p><i>(tests/InheritTest.bb)</i></p>
+
+  <p class="header">Continue</p>
+  <p><i>Continue</i> skips to the next iteration of the enclosing <i>For</i>,
+    <i>While</i> or <i>Repeat</i> loop &mdash; the counterpart to <i>Exit</i>, which
+    leaves the loop entirely.</p>
+  <blockquote>
+    <p><i> Local sum = 0<br>
+      For i = 0 To 10<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;If i = 5 Then Continue&nbsp;; skip 5<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;sum = sum + i<br>
+      Next<br>
+      Print sum ; 50</i></p>
+  </blockquote>
+  <p><i>(tests/LoopTest.bb)</i></p>
+
+  <p class="header">Function pointers</p>
+  <p>BlitzForge can take a reference to a function and call it indirectly. The
+    <i>@</i> sigil marks a function-pointer type; <i>BBFunction</i> is the type of a
+    pointer; and a function returns a pointer to itself by calling <i>FunctionPtr()</i>.
+    Because indirect calls pass a single value, anything richer is wrapped in a
+    small &quot;DTO&quot; (data-transfer object) type and passed via <i>Ptr</i>.</p>
+  <blockquote>
+    <p><i> Strict<br>
+      EnableGC<br>
+      <br>
+      Type BasicDTO<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Field var%<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Method create.BasicDTO( var% )<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self\var = var : Return self<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;End Method<br>
+      End Type<br>
+      <br>
+      ; A pointer-returning function: when handed Null it returns its own pointer<br>
+      Function myFunc@( dto.BasicDTO = Null )<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;If dto = Null Then Return FunctionPtr()<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Return New BasicDTO( dto\var )<br>
+      End Function<br>
+      <br>
+      Local f.BBFunction = myFunc( Null )<br>
+      Local result.BasicDTO = Call( f, Ptr New BasicDTO( 1 ) )</i></p>
+  </blockquote>
+  <p><i>(tests/FunctionPointerTest.bb)</i></p>
+
+  <p class="header">Asynchronous calls</p>
+  <p>A function pointer can be launched on its own thread with <i>Async</i>, which
+    returns a <i>BBThread</i> future immediately so the main thread keeps running.
+    <i>Await</i> blocks until the result is ready and returns it; <i>Poll</i> checks
+    whether it is ready without blocking; and <i>AsyncThen</i> chains a second
+    function to run on the result of the first.</p>
+  <blockquote>
+    <p><i> Local f.BBFunction = myFunc( Null )<br>
+      <br>
+      ; Launch &mdash; returns a future straight away<br>
+      Local thread.BBThread = Async( f, New BasicDTO( 2 ) )<br>
+      <br>
+      ; ... do other work here ...<br>
+      <br>
+      ; Check without blocking<br>
+      If Poll( thread )<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Local result.BasicDTO = Await( thread )<br>
+      End If<br>
+      <br>
+      ; Or chain a follow-up function onto the result<br>
+      Local chained.BBThread = AsyncThen( thread, anotherFunc() )</i></p>
+  </blockquote>
+  <p>This is a fragment for illustration; see <i>tests/FunctionPointerTest.bb</i> for
+    complete, runnable async examples.</p>
+
+  <p class="header">Exceptions: Throw and TryCatch</p>
+  <p>BlitzForge supports error handling through <i>Throw</i> and <i>TryCatch</i>.
+    <i>TryCatch(tryFn, catchFn, dto)</i> runs the <i>try</i> function; if it (or
+    anything it calls) <i>Throw</i>s, control transfers to the <i>catch</i> function,
+    which receives the thrown payload. Both functions and the payload are passed as
+    function pointers / DTO objects, mirroring the function-pointer calling
+    convention above.</p>
+  <blockquote>
+    <p><i> Function functionToThrow@( dto.BasicDTO = Null )<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;If dto = Null Then Return FunctionPtr()<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Throw New BasicDTO( 10 )&nbsp;; transfers control to the catch fn<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Return New BasicDTO( 1 )<br>
+      End Function<br>
+      <br>
+      Function functionToCatch@( code.BasicDTO = Null )<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;If code = Null Then Return FunctionPtr()<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;; code\var holds the thrown payload (10 here)<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Return New BasicDTO( 2 )<br>
+      End Function<br>
+      <br>
+      Local dto.BasicDTO = New BasicDTO( 0 )<br>
+      Local t.BBFunction = functionToThrow()<br>
+      Local c.BBFunction = functionToCatch()<br>
+      Local result.BasicDTO = TryCatch( t, c, dto )&nbsp;; result\var = 2</i></p>
+  </blockquote>
+  <p><i>(tests/TryThrowCatchTest.bb)</i></p>
+
+  <p class="header">Pointers</p>
+  <p>The <i>Ptr</i> operator takes a typed pointer to an object, and <i>BBPointer</i>
+    (or the <i>@</i> sigil on a variable) is the type of a pointer. Pointers let you
+    pass objects through interfaces that work in terms of raw references &mdash; for
+    example the function-pointer calling convention shown above.</p>
+  <blockquote>
+    <p><i> Strict<br>
+      EnableGC<br>
+      <br>
+      Local bank.BBBank = CreateBank( 4 )<br>
+      Local p1.BBPointer = Ptr bank&nbsp;&nbsp;; explicit BBPointer type<br>
+      Local p2@ = Ptr bank&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;; @ is shorthand for a pointer<br>
+      <br>
+      ; A pointer refers to the same underlying object<br>
+      ResizeBank p1, 16<br>
+      Print BankSize( bank ) ; 16</i></p>
+  </blockquote>
+  <p><i>(tests/PointerTest.bb)</i></p>
+
+  <p class="header">The built-in test framework</p>
+  <p>BlitzForge has a unit-test runner built into the compiler. A <i>Test name() ...
+    End Test</i> block is a test; <i>Assert(expr)</i> checks a condition (and returns
+    the boolean result so it can be used inline). Run every test in a file with
+    <i>blitzcc -t file.bb</i>.</p>
+  <blockquote>
+    <p><i> Strict<br>
+      EnableGC<br>
+      <br>
+      Test AdditionTest()<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;Assert( 1 + 1 = 2 )<br>
+      End Test</i></p>
+  </blockquote>
+  <p>The test suite under <i>tests/</i> is the authoritative, executable
+    specification for all of the features on this page.</p>
+</blockquote>
+</body>
+</html>
