@@ -1,0 +1,67 @@
+# corpus_compile_allowlist.txt
+#
+# Files under samples/ tutorials/ games/ that do NOT compile today with
+# `blitzcc -c +q`. The compile-sweep gate (scripts/sweep_corpus.sh) treats these
+# as known failures so it can ratchet: any NEW compile failure (a file not listed
+# here) fails CI. Remove an entry once its underlying cause is fixed.
+#
+# Paths are repo-relative with forward slashes. Inline `# ...` comments are
+# ignored by the gate; they record the failure cause. Baseline: 32 files.
+#
+# The four failure classes below double as a legacy-compatibility backlog; each
+# repair removes its line(s) from this list.
+#
+# Baseline reflects the Windows runtime's registered command set (the stable
+# target). The sweep is currently gated in CI on the Windows job only; gating the
+# macOS alpha job would need a baseline regenerated against its runtime metadata.
+
+# --- Class A: keyword collision (legacy identifier vs a reserved word) --------
+# Drop-in source compatibility (INTENT #1) regression: BlitzForge reserves words
+# that classic Blitz3D allowed as identifiers. The HIGH-priority contextual-keyword
+# fix would re-enable these. (`object` is a legacy Blitz3D keyword, not a fork
+# addition, but the program still uses it as an identifier.)
+samples/Blitz 2D Samples/fileio.bb        # 'test=' — test is now the Test keyword
+samples/Blitz 2D Samples/global.bb        # 'test=100'
+samples/Blitz 2D Samples/spindisc.bb      # 'release=1' — release is now the Release keyword
+samples/Blitz 3D Samples/birdie/Mirror/mirror.bb              # 'test=CreateCube()'
+samples/Blitz 3D Samples/Hi-Toro/Death Island/deathisland.bb  # 'test.Timer' parameter name
+samples/Blitz 3D Samples/RobHutchinson/CraftFlare/CraftFlare.bb  # 'object' identifier (legacy keyword)
+
+# --- Class B: disabled / unregistered builtin --------------------------------
+# Legacy Blitz3D builtins that are commented out or never registered in this
+# fork's runtime (e.g. SoundPan is commented out in bbruntime/bbaudio.cpp).
+# Re-enabling each builtin removes the corresponding line(s).
+samples/Blitz 2D Samples/aristoids/aristoids.bb   # SoundPan not found
+samples/Blitz 2D Samples/spider/spider.bb         # SoundPan not found
+samples/Blitz 2D Samples/Celestial Rift/Celestial Rift v1-0.bb   # PlayMusic not found
+samples/Blitz 2D Samples/Celestial Rift/Celestial Rift v1-1.bb   # PlayMusic not found
+samples/Blitz 2D Samples/Project DNA/Project DNA.bb              # PlayMusic not found
+samples/Blitz 3D Samples/RobHutchinson/SkyPlateau/SkyPlateau.bb  # PlayMusic not found
+samples/Blitz 2D Samples/netgame.bb               # StartNetGame not found
+samples/Blitz 3D Samples/birdie/thunder/thunder.bb              # CreateListener not found
+samples/Blitz 3D Samples/RobHutchinson/Beginner Examples/Creating A Scene - In Five Easy Steps/Creating A Scene - Part 5.bb  # CreateListener not found
+samples/Blitz 3D Samples/mak/castle/castle.bb     # Load3DSound not found
+samples/Blitz 3D Samples/Richard_Betson/orbit_nebula_source/orbit.bb  # Load3DSound not found
+samples/Blitz 3D Samples/mak/anim/makbot/MAK-sfx.bb  # AnimateEntity not found
+games/TunnelRun/tr.bb            # CreateListener not found
+games/wing_ring/wing_ring.bb     # PlayMusic not found (in included menus.bb)
+
+# --- Class C: include fragment / not a standalone entry point ----------------
+# These files are meant to be `Include`d into a host program and reference types,
+# arrays, functions, or labels defined there; compiling them standalone is
+# expected to fail. (The sweep compiles every .bb; entry-point detection is a
+# possible future refinement.)
+samples/Blitz 3D Samples/Misc/FPS/functions.bb    # Type "gun" defined in host
+samples/Blitz 3D Samples/Misc/FPS/PIO.bb          # Type "gun" defined in host
+samples/Blitz 3D Samples/Particle Demo/EXAMPLES/fragments.bb  # Type "peemitter" from particle lib
+samples/Blitz 3D Samples/Particle Demo/EXAMPLES/powerup.bb    # Type "peemitter" from particle lib
+samples/Blitz 3D Samples/Particle Demo/EXAMPLES/rain.bb       # Type "peemitter" from particle lib
+samples/Blitz 3D Samples/Particle Demo/EXAMPLES/roman.bb      # Type "peemitter" from particle lib
+samples/Blitz 3D Samples/Particle Demo/peEvents.bb            # Type "peparticle" from particle lib
+games/TunnelRun/functions.bb     # Type "obj" defined in host
+games/TunnelRun/globs.bb         # Undefined label 'highs' (defined in host)
+games/wing_ring/menus.bb         # Array not found in main program (fragment)
+games/wing_ring/player2.bb       # Type "plane2_bullet" defined in host
+
+# --- Class D: type-strictness / semantic incompatibility ---------------------
+samples/Blitz 3D Samples/Open DNA/Dungeon Trigger/dungeon-trigger.bb  # Illegal type conversion Float -> BBEntity

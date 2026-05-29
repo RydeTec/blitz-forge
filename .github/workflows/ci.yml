@@ -38,6 +38,10 @@ jobs:
         shell: cmd
         run: test.bat
 
+      - name: Compile-only corpus regression sweep
+        shell: bash
+        run: bash scripts/sweep_corpus.sh
+
   build-macos:
     # macOS build is alpha: runtime execution is not yet wired through, so
     # this job intentionally validates only that `compile.sh` produces a
