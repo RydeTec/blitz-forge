@@ -619,73 +619,84 @@ T _bbCallFunctionPointer(BBFunction<T> functionPtr, va_list args) {
 	return returnValue;
 }
 
-// KNOWN BUG: on MSVC x86 `va_list` is a `char*` into the *caller's*
-// stack frame. `std::async(std::launch::async, functionPtr, args)`
-// decay-copies the pointer into the worker task, but the worker
-// reads through it after this function has returned and the
-// caller's frame may have been torn down. That's a use-after-free
-// with intermittent symptoms: works in FunctionPointerTest's tight
-// Async-then-Poll-then-Await loops because the launching frame is
-// still live, fails the moment the async handle escapes its
-// launching function (e.g. caller stores the BBThread in a global
-// and returns).
-//
-// The fix needs codegen to plumb a sized args buffer across the
-// boundary so the worker has a self-contained copy. Until that
-// lands, callers should treat the async API as "must Await before
-// the launching function returns" and not store handles long-term.
-//
-// (Also note: the ESP save/restore brackets a `new` and a
-// `std::async` -- both are C++ calls that should not need stack-
-// pointer rescue, but the asm is preserved for now because removing
-// it interacts with the va_list ABI in ways that warrant a focused
-// look in the same future codegen PR.)
-template<typename T>
-int _bbAsyncCallFunctionPointer(BBFunction<T> functionPtr, va_list args) {
-	int32_t StackPointer;
+int _bbReference(int vPtr);
+int _bbRelease(int vPtr, const char *s);
 
-	__asm { // Store Stack Pointer
-		mov StackPointer, esp;
+static int _bbReferenceIfTracked(int vPtr) {
+	if (vPtr == 0) {
+		return 0;
 	}
+	auto it = reference_map.find(vPtr);
+	if (it == reference_map.end()) {
+		return 0;
+	}
+	++(it->second.count);
+	return vPtr;
+}
+
+template<typename T>
+struct BBAsyncCallState {
+	std::future<T> future;
+	int retainedPayload;
+	const char *retainedType;
+};
+
+// Async and AsyncThen expose exactly one pointer-sized payload slot
+// in basic_link(). The runtime ABI carries that slot in a va_list-typed
+// parameter, but on this surface the value itself is the payload; do
+// not va_arg() through it or the worker will read object memory as a
+// caller-frame argument cursor.
+template<typename T>
+int _bbAsyncCallFunctionPointerOwned(BBFunction<T> functionPtr, va_list args, bool retainPayload) {
+	int payload = reinterpret_cast<int>(args);
+	va_end(args);
+	int retainedPayload = retainPayload ? _bbReferenceIfTracked(payload) : 0;
+	va_list ownedArgs = reinterpret_cast<va_list>(payload);
 
 	// Create a std::future<int> and store it in a dynamically allocated object
-	std::future<T>* futurePtr = new std::future<T>(std::async(std::launch::async, functionPtr, args));
-
-	__asm { // Restore Stack Pointer
-		mov esp, StackPointer;
-	}
-
-	va_end(args);
+	BBAsyncCallState<T>* state = new BBAsyncCallState<T>{
+		std::async(std::launch::async, functionPtr, ownedArgs),
+		retainedPayload,
+		retainPayload ? "BBCustom" : nullptr
+	};
 
 	// Return the pointer as intptr_t
-	return reinterpret_cast<int>(futurePtr);
+	return reinterpret_cast<int>(state);
+}
+
+template<typename T>
+int _bbAsyncCallFunctionPointer(BBFunction<T> functionPtr, va_list args) {
+	return _bbAsyncCallFunctionPointerOwned(functionPtr, args, true);
 }
 
 template<typename T>
 T _bbAwaitAsyncCall(int threadPtr) {
-	std::future<T>* futurePtr = reinterpret_cast<std::future<T>*>(threadPtr);
+	BBAsyncCallState<T>* state = reinterpret_cast<BBAsyncCallState<T>*>(threadPtr);
 	// Guard against null / sentinel handle. Doesn't prevent the
 	// double-Await UAF (caller still holds the original int value
 	// after we delete) but at least bails on the obvious mis-use.
-	if (futurePtr == nullptr) {
+	if (state == nullptr) {
 		return T();
 	}
-	T result = futurePtr->get();
-	delete futurePtr;
+	T result = state->future.get();
+	if (state->retainedPayload != 0) {
+		_bbRelease(state->retainedPayload, state->retainedType);
+	}
+	delete state;
 	return result;
 }
 
 template<typename T>
 int _bbPollAsyncCall(int threadPtr) {
-	std::future<T>* futurePtr = reinterpret_cast<std::future<T>*>(threadPtr);
-	if (futurePtr == nullptr) {
+	BBAsyncCallState<T>* state = reinterpret_cast<BBAsyncCallState<T>*>(threadPtr);
+	if (state == nullptr) {
 		return 1;  // null handle: "ready" so the caller stops polling
 	}
-	return futurePtr->wait_for(std::chrono::milliseconds(1)) == std::future_status::ready;
+	return state->future.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready;
 }
 
 int _bbAsyncThenCall(va_list threadPtr, BBFunction<int> functionPtr) {
-	return _bbAsyncCallFunctionPointer(functionPtr, threadPtr);
+	return _bbAsyncCallFunctionPointerOwned(functionPtr, threadPtr, false);
 }
 
 // Wrap thrown payloads in a tagged struct so `catch` doesn't
