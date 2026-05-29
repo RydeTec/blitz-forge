@@ -42,8 +42,11 @@ deferred fixing.
    - include fragment / not a standalone entry point
    - external-lib / userlib dependency
 3. **Wire into CI** (`.github/workflows/ci.yml`): add a sweep step to the Windows
-   `build-and-test` job (after `test.bat`, `shell: bash`) and to the macOS job
-   (after the existing tests smoke). Both runners have bash.
+   `build-and-test` job (after `test.bat`, `shell: bash`). Shipped Windows-only:
+   the allowlist baseline reflects the Windows runtime's registered command set
+   (the stable target). The macOS alpha job is intentionally NOT gated until a
+   baseline is regenerated against its runtime metadata (its stub may register a
+   different builtin set, which would surface as spurious new-fails).
 
 ## Files touched
 
@@ -64,7 +67,7 @@ No compiler/runtime/sample changes. Additive CI + tooling only.
   reserved word as an identifier and watching the sweep go red, then removing it.
 - An allowlisted file that now compiles produces a non-fatal stale warning (does
   not break CI).
-- CI runs the sweep on both jobs; existing `test.bat` / macOS smoke unaffected.
+- CI runs the sweep on the Windows job; existing `test.bat` / macOS smoke unaffected.
 
 ## Trade-offs / rejected
 
