@@ -169,6 +169,26 @@ if grep -q "error:" "${TEST_TMPDIR}/diag-ide.out"; then
   FAILED=1
 fi
 
+# --- runtime crash diagnostic: native faults are labeled by type ---
+# The seTranslator must map each structured exception to its own message rather
+# than reporting every fault as "Stack overflow!". The fixture deliberately
+# integer-divides by zero; in -t mode the panic prints "Error: <msg>" and exits
+# non-zero, so it lives outside tests/ and is invoked explicitly. (Windows-only
+# path; on hosts without the structured-exception translator this is a no-op
+# check that simply won't see the message -- so only assert it where it applies.)
+CRASH_BB="${ROOTDIR}/scripts/fixtures/divzero.bb"
+if [[ -f "${CRASH_BB}" ]]; then
+  set +e
+  "${BLITZCC}" "${TARGET_FLAG[@]}" "${EXEC_FLAG[@]}" -t "${CRASH_BB}" > "${TEST_TMPDIR}/crash.out" 2>&1
+  crash_rc=$?
+  set -e
+  if grep -q "Stack overflow" "${TEST_TMPDIR}/crash.out" && ! grep -q "Integer divide by zero" "${TEST_TMPDIR}/crash.out"; then
+    echo "crash diagnostic FAILED: divide-by-zero mislabeled as Stack overflow" >&2
+    cat "${TEST_TMPDIR}/crash.out" >&2
+    FAILED=1
+  fi
+fi
+
 while IFS= read -r -d '' f; do
   if ! "${BLITZCC}" "${TARGET_FLAG[@]}" "${EXEC_FLAG[@]}" -t "${f}"; then
     echo "\"${f}\" failed at least one test"
