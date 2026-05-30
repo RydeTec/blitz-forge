@@ -214,8 +214,21 @@ void Toker::nextline(){
 			for( ++k;line[k]!='\n';++k ){}
 			continue;
 		}
+		// Consume a float exponent suffix [eE][+-]?<digits> starting at p, if one is
+		// present; return the index past it, or p unchanged when it is not a valid
+		// exponent (so the bare 'e' falls through to the identifier scanner). Lines
+		// are newline-terminated, so line[p]/line[p+1] are always in bounds here.
+		auto scanExp = [&]( int p ) -> int {
+			if( line[p]!='e' && line[p]!='E' ) return p;
+			int q=p+1;
+			if( line[q]=='+' || line[q]=='-' ) ++q;
+			if( !isdigit( line[q] ) ) return p;
+			for( ++q;isdigit( line[q] );++q ){}
+			return q;
+		};
 		if( c=='.' && isdigit( line[k+1] ) ){
 			for( k+=2;isdigit( line[k] );++k ){}
+			k=scanExp( k );
 			tokes.push_back( Toke( FLOATCONST,from,k ) );
 			continue;
 		}
@@ -223,6 +236,15 @@ void Toker::nextline(){
 			for( ++k;isdigit( line[k] );++k ){}
 			if( line[k]=='.' ){
 				for( ++k;isdigit( line[k] );++k ){}
+				k=scanExp( k );
+				tokes.push_back( Toke( FLOATCONST,from,k ) );
+				continue;
+			}
+			// No fractional part: an exponent still makes it a float (1e6),
+			// otherwise it stays an integer constant.
+			int e=scanExp( k );
+			if( e!=k ){
+				k=e;
 				tokes.push_back( Toke( FLOATCONST,from,k ) );
 				continue;
 			}
