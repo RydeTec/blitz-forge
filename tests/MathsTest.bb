@@ -118,6 +118,18 @@ Test testRndRange()
     Assert( ok )
 End Test
 
+; Pin Rnd's float path determinism directly (not just transitively via Rand):
+; the same seed must reproduce the same float draws. Exact float equality is
+; valid here because it's bit-identical operations from an identical state.
+Test testRndReproducible()
+    SeedRnd( 314 )
+    Local b1# = Rnd( 0.0, 1.0 )
+    Local b2# = Rnd( -5.0, 5.0 )
+    SeedRnd( 314 )
+    Assert( Rnd( 0.0, 1.0 ) = b1# )
+    Assert( Rnd( -5.0, 5.0 ) = b2# )
+End Test
+
 ; RndSeed reports the current generator state; after the same seed + draws it is
 ; reproducible.
 Test testRndSeedState()
