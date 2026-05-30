@@ -16,7 +16,7 @@ void		 bbLoopSound( gxSound *sound,int loop );
 void		 bbSoundPitch( gxSound *sound,float pitch );
 void		 bbSoundVolume( gxSound *sound,float volume );
 void		 bbSoundRange( gxSound *sound,float inNear,float inFar );
-//void		 bbSoundPan( gxSound *sound,float pan );
+void		 bbSoundPan( gxSound *sound,float pan );
 void		 bbStopChannel( gxChannel *channel );
 void		 bbPauseChannel( gxChannel *channel );
 void		 bbResumeChannel( gxChannel *channel );
@@ -25,7 +25,7 @@ void		 bbChannelVolume( gxChannel *channel,float volume );
 void		 bbChannelRange( gxChannel *channel,float inNear,float inFar );
 void		 bbChannelPos( gxChannel *channel,float x,float y,float z,float vx,float vy,float vz );
 void         bbChannelSeek( gxChannel *channel,float seconds );
-//void		 bbChannelPan( gxChannel *channel,float pan );
+void		 bbChannelPan( gxChannel *channel,float pan );
 int			 bbChannelPlaying( gxChannel *channel );
 
 #endif
