@@ -20,10 +20,11 @@
 # that classic Blitz3D allowed as identifiers. The HIGH-priority contextual-keyword
 # fix would re-enable these. (`object` is a legacy Blitz3D keyword, not a fork
 # addition, but the program still uses it as an identifier.)
-# NOTE: the four `test`-collision files (fileio/global/mirror/deathisland) were
-# removed once `Test` became a contextual keyword (PR: align/legacy-test-keyword-identifier);
-# they now compile. `release` and `object` remain (see below).
-samples/Blitz 2D Samples/spindisc.bb      # 'release=1' — Release is still a hard keyword (Phase 2: expression-position contextual)
+# NOTE: the `test`-collision files (fileio/global/mirror/deathisland) were removed
+# once `Test` became a contextual keyword (PR: align/legacy-test-keyword-identifier),
+# and `spindisc.bb` once `Release` became contextual (PR: align/legacy-release-keyword-identifier).
+# `object` remains: it is a *base* Blitz3D keyword (Object.Type(handle)), not a fork
+# addition, so it is a different problem class -- deferred for separate investigation.
 samples/Blitz 3D Samples/RobHutchinson/CraftFlare/CraftFlare.bb  # 'object' identifier (legacy Blitz3D keyword, not a fork addition)
 
 # --- Class B: disabled / unregistered builtin --------------------------------
