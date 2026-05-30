@@ -18,6 +18,7 @@ protected:
     bool def_loop;
 	float def_range_near;
 	float def_range_far;
+	float def_pan;
 	float pos[3],vel[3];
 
 	/***** GX INTERFACE *****/
@@ -31,6 +32,7 @@ public:
 	virtual void setPitch( float pitch ) =0;
 	virtual void setVolume( float volume ) =0;
 	virtual void setRange( float inNear,float inFar ) =0;
+	virtual void setPan( float pan ) =0;
 
 	//allocation
 	virtual void free() =0;
@@ -59,6 +61,7 @@ public:
 	void setPitch( float pitch );
 	void setVolume( float volume );
 	void setRange( float inNear,float inFar );
+	void setPan( float pan );
 
 	//allocation
 	static gxSoundSample* load(gxAudio *a,const std::string &filename,bool use_3d);
@@ -84,6 +87,7 @@ public:
 	void setPitch( float pitch );
 	void setVolume( float volume );
 	void setRange( float inNear,float inFar );
+	void setPan( float pan );
 
 	//allocation
 	static gxSoundStream* load(gxAudio *a,const std::string &filename,bool use_3d);

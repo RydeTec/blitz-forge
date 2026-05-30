@@ -9,6 +9,7 @@
 #include <vorbis/vorbisfile.h>
 
 #include <chrono>
+#include <cmath>
 
 gxChannel::~gxChannel(){
 }
@@ -59,6 +60,16 @@ void SampleChannel::setVolume( float volume ){
 void SampleChannel::setRange(float inNear, float inFar) {
 	alSourcef( source,AL_REFERENCE_DISTANCE,inNear*gxAudio::posScale );
 	alSourcef( source,AL_MAX_DISTANCE,inFar*gxAudio::posScale );
+}
+
+void SampleChannel::setPan( float pan ){
+	// Stereo pan via constant-power positioning on a listener-relative source:
+	// pan -1 = full left, 0 = centre, +1 = full right. Mutually exclusive with
+	// set3d (which clears AL_SOURCE_RELATIVE) -- last call wins, matching legacy
+	// Blitz3D pan/3D semantics.
+	if( pan<-1.f ) pan=-1.f; else if( pan>1.f ) pan=1.f;
+	alSourcei( source,AL_SOURCE_RELATIVE,AL_TRUE );
+	alSource3f( source,AL_POSITION,pan,0.f,-sqrtf( 1.f-pan*pan ) );
 }
 
 void SampleChannel::set3d( const float pos[3],const float vel[3] ){
@@ -137,6 +148,12 @@ void StreamChannel::setVolume( float volume ){
 void StreamChannel::setRange(float inNear, float inFar) {
 	alSourcef( source,AL_REFERENCE_DISTANCE,inNear*gxAudio::posScale );
 	alSourcef( source,AL_MAX_DISTANCE,inFar*gxAudio::posScale );
+}
+void StreamChannel::setPan( float pan ){
+	// See SampleChannel::setPan -- constant-power pan on a relative source.
+	if( pan<-1.f ) pan=-1.f; else if( pan>1.f ) pan=1.f;
+	alSourcei( source,AL_SOURCE_RELATIVE,AL_TRUE );
+	alSource3f( source,AL_POSITION,pan,0.f,-sqrtf( 1.f-pan*pan ) );
 }
 void StreamChannel::set3d( const float pos[3],const float vel[3] ){
 	alSourcei(source, AL_SOURCE_RELATIVE, AL_FALSE);
