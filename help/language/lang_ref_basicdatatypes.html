@@ -17,8 +17,14 @@ content="text/html; charset=iso-8859-1">
       For example: 5,-10,0 are integer values. All integer values in your program 
       must be in the range -2147483648 to +2147483647. <br>
     </p>
-    <p><b>Floating point values</b> are numeric values that include a fractional 
+    <p><b>Floating point values</b> are numeric values that include a fractional
       part. For example: .5, -10.1, 0.0 are all floating point values. <br>
+      Floating point values may also use <b>exponent (scientific) notation</b>: a
+      number followed by <tt>e</tt> or <tt>E</tt> and a power of ten. For example:
+      <tt>1.5e3</tt> (1500.0), <tt>2.0e-3</tt> (0.002), and <tt>1e6</tt>
+      (1000000.0) are all floating point values. A bare integer becomes a floating
+      point value when an exponent is present, so <tt>1e6</tt> is a float, not an
+      integer. <br>
     </p>
     <p><b>Strings values</b> are used to contain text. For example: "Hello", "What's 
       up?", "***** GAME OVER *****", ""</p>
