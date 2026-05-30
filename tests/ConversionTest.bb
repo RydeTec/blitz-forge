@@ -36,7 +36,9 @@ Test testStrToFloat()
 End Test
 
 ; Str(float) formatting (ftoa). Values captured from the Windows build; note the
-; trailing ".0" on whole-valued floats (Str(1.0) = "1.0", not "1").
+; trailing ".0" on whole-valued floats (Str(1.0) = "1.0", not "1"). This pins the
+; Windows ftoa formatting contract specifically; if/when the macOS runtime executes
+; tests, float-string formatting may need a separate annotation if it diverges.
 Test testFloatToStr()
     Assert( Str(1.5) = "1.5" )
     Assert( Str(0.5) = "0.5" )
