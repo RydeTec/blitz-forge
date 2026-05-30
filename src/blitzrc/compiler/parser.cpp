@@ -63,11 +63,12 @@ void Parser::exp( const string &s ){
 }
 
 string Parser::parseIdent(){
-	// 'Test' is a contextual keyword: it is only the test-block opener at
-	// statement start (handled in parseStmtSeq). In every identifier position --
-	// parameter names, Local/Global/Field declarations, type tags, labels -- it is
-	// an ordinary identifier, so legacy programs using `test` as a name compile.
-	if( toker->curr()!=IDENT && toker->curr()!=TEST ) exp( "identifier near: " + toker->text() );
+	// 'Test' and 'Release' are contextual keywords: 'Test' is only the test-block
+	// opener at statement start, and 'Release' is only the GC release operator
+	// (`Release.Type <obj>`). In every identifier position -- parameter names,
+	// Local/Global/Field declarations, type tags, labels -- both are ordinary
+	// identifiers, so legacy programs using `test`/`release` as names compile.
+	if( toker->curr()!=IDENT && toker->curr()!=TEST && toker->curr()!=RELEASE ) exp( "identifier near: " + toker->text() );
 	string t=toker->text();
 	if (t.find(":") != std::string::npos) ex( "Identifiers cannot include the : character");
 	toker->next();
@@ -161,6 +162,11 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 		// source compatibility). Route those uses through the IDENT statement path.
 		int stmtTok = toker->curr();
 		if( stmtTok==TEST && !(scope==STMTS_PROG && toker->lookAhead(1)==IDENT) ) stmtTok=IDENT;
+		// 'Release' is contextual the same way: the GC release operator is always
+		// `Release.Type ...` or `Release Type ...` (a '.' or identifier follows).
+		// A statement like `release = ...`, `release(...)`, or `release\field` is an
+		// ordinary identifier use -- route it through the IDENT statement path.
+		if( stmtTok==RELEASE && !(toker->lookAhead(1)=='.' || toker->lookAhead(1)==IDENT) ) stmtTok=IDENT;
 
 		switch( stmtTok ){
 		case INCLUDE:
@@ -1029,12 +1035,6 @@ ExprNode *Parser::parseUniExpr( bool opt ){
 		result=parseUniExpr( false );
 		result=d_new RecastNode( result,t );
 		break;
-	case RELEASE:
-		if( toker->next()=='.' ) toker->next();
-		t=parseIdent();
-		result=parseUniExpr( false );
-		result=d_new ReleaseNode( result,t );
-		break;
 	case REFERENCE:
 		toker->next();
 		result=parseUniExpr( false );
@@ -1132,6 +1132,19 @@ ExprNode *Parser::parsePrimary( bool opt ){
 	case BBFALSE:
 		result=d_new IntConstNode( 0 );
 		toker->next();break;
+	case RELEASE:
+		// 'Release' is a contextual keyword: `Release[.]Type <operand>` is the GC
+		// release operator, but a bare `release` (followed by '=', '\', '(', '[', an
+		// operator, ...) is an ordinary identifier. Disambiguate on the next token:
+		// the operator form always has a '.' or a type identifier immediately after.
+		if( toker->lookAhead(1)=='.' || toker->lookAhead(1)==IDENT ){
+			if( toker->next()=='.' ) toker->next();
+			t=parseIdent();
+			result=parseUniExpr( false );
+			result=d_new ReleaseNode( result,t );
+			break;
+		}
+		// else fall through: treat 'release' as an ordinary identifier
 	case TEST:	// contextual keyword: usable as an identifier in expressions
 	case IDENT:
 		ident=toker->text();
