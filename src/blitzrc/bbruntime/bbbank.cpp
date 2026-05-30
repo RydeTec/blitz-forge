@@ -168,18 +168,23 @@ void  bbPokeFloat( bbBank *b,int offset,float value ){
 }
 
 int   bbReadBytes( bbBank *b,bbStream *s,int offset,int count ){
-	//if( debug ){
+	// Same audit class as bbCopyBank: a negative count widens to a huge
+	// std::streamsize in the stream layer (arbitrary OOB read/write), and the
+	// single composite `offset+count-1` check passed a valid index for a
+	// negative count or a negative offset with a compensating count. Reject
+	// count<=0 up front and validate the start and end offsets independently.
+	if( count <= 0 ) return 0;
+	if (!debugBank( b,offset,"ReadBytes" )) return 0;
 	if (!debugBank( b,offset+count-1,"ReadBytes" )) return 0;
 	if (!debugStream( s,"ReadBytes" )) return 0;
-	//}
 	return s->read( b->data+offset,count );
 }
 
 int   bbWriteBytes( bbBank *b,bbStream *s,int offset,int count ){
-	//if( debug ){
+	if( count <= 0 ) return 0;
+	if (!debugBank( b,offset,"WriteBytes" )) return 0;
 	if (!debugBank( b,offset+count-1,"WriteBytes" )) return 0;
 	if (!debugStream( s,"WriteBytes" )) return 0;
-	//}
 	return s->write( b->data+offset,count );
 }
 
