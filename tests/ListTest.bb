@@ -134,3 +134,86 @@ Test testEmbeddedLists()
     FreeList(testArray2)
     FreeList(testArray)
 End Test
+
+; --- Bounds / emptiness guards ---
+; Out-of-range indices and empty-list accessors must NOT crash or corrupt memory.
+; Pre-fix, ListAt out of range threw std::out_of_range and killed the whole run;
+; Insert/Remove/Replace with a bad index dereferenced begin()+idx (UB); First/Last
+; on an empty list called front()/back() (UB). In test mode they now no-op / return
+; Null and the program keeps running. The trailing asserts only execute if the bad
+; calls did not abort the process -- that is the regression guard.
+
+Test testListAtOutOfRange()
+    Local list.BBList = CreateList()
+    ListAdd(list, new DTOTest())
+
+    ; Out-of-range and negative indices return Null instead of crashing.
+    Local hi.DTOTest = ListAt(list, 99)
+    Assert(hi = Null)
+    Local neg.DTOTest = ListAt(list, -1)
+    Assert(neg = Null)
+
+    ; Size is unchanged and the list is still usable.
+    Assert(ListSize(list) = 1)
+
+    FreeList(list)
+End Test
+
+Test testListFirstLastEmpty()
+    Local list.BBList = CreateList()
+    Assert(ListIsEmpty(list))
+
+    ; front()/back() on an empty vector is UB; guarded to return Null.
+    Local f.DTOTest = ListFirst(list)
+    Assert(f = Null)
+    Local l.DTOTest = ListLast(list)
+    Assert(l = Null)
+
+    ; Reached here => the empty-accessor calls did not abort the run.
+    Assert(ListSize(list) = 0)
+
+    FreeList(list)
+End Test
+
+Test testListRemoveReplaceOutOfRange()
+    Local list.BBList = CreateList()
+    Local a.DTOTest = new DTOTest()
+    a\val = 7
+    ListAdd(list, a)
+
+    ; Out-of-range remove/replace are no-ops: size and contents unchanged.
+    ListRemove(list, 99)
+    ListRemove(list, -1)
+    Assert(ListSize(list) = 1)
+
+    ListReplace(list, 99, new DTOTest())
+    ListReplace(list, -1, new DTOTest())
+    Assert(ListSize(list) = 1)
+
+    Local still.DTOTest = ListAt(list, 0)
+    Assert(still\val = 7)
+
+    FreeList(list)
+End Test
+
+Test testListInsertBoundary()
+    Local list.BBList = CreateList()
+    Local a.DTOTest = new DTOTest()
+    a\val = 1
+    ListAdd(list, a)
+
+    ; idx == size is the valid append position.
+    Local b.DTOTest = new DTOTest()
+    b\val = 2
+    ListInsert(list, 1, b)
+    Assert(ListSize(list) = 2)
+    Local appended.DTOTest = ListAt(list, 1)
+    Assert(appended\val = 2)
+
+    ; idx > size and negative idx are rejected (no-op).
+    ListInsert(list, 99, new DTOTest())
+    ListInsert(list, -1, new DTOTest())
+    Assert(ListSize(list) = 2)
+
+    FreeList(list)
+End Test
