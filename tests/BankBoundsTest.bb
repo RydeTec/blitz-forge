@@ -156,3 +156,32 @@ Test testReadBytesNegativeCountIsNoOp()
 
 	DeleteFile(bytesDir$ + "byteneg2.dat")
 End Test
+
+Test testReadBytesNegativeOffsetIsNoOp()
+	; The second attack vector: a negative offset with a compensating count
+	; (offset=-4, count=8) made the lone composite index offset+count-1 = 3 look
+	; in range, so the pre-fix code read into data-4 (OOB underflow). The new
+	; independent start-offset check rejects it.
+	Local src.BBBank = CreateBank(8)
+	Local i
+	For i = 0 To 7
+		PokeByte src, i, 9
+	Next
+	Local out.BBStream = WriteFile(bytesDir$ + "byteneg3.dat")
+	WriteBytes src, out, 0, 8
+	CloseFile out
+
+	Local dest.BBBank = CreateBank(8)
+	For i = 0 To 7
+		PokeByte dest, i, 255
+	Next
+	Local inp.BBStream = ReadFile(bytesDir$ + "byteneg3.dat")
+	ReadBytes dest, inp, -4, 8
+	CloseFile inp
+
+	For i = 0 To 7
+		Assert(PeekByte(dest, i) = 255)
+	Next
+
+	DeleteFile(bytesDir$ + "byteneg3.dat")
+End Test
