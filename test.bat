@@ -23,6 +23,10 @@ call :expect_failure "EOF error names end of file, not a control byte" "end of f
 call :expect_ide_format "IDE machine format preserved under blitzide" "!DIAG_BB!"
 del /q "!DIAG_BB!" >nul 2>&1
 
+rem --- runtime crash diagnostic: native faults are labeled by type, not all "Stack overflow!" ---
+rem The fixture panics and exits non-zero by design, so it lives outside tests\.
+call :expect_failure "native divide-by-zero is labeled correctly" "Integer divide by zero" -t "%ROOTDIR%\scripts\fixtures\divzero.bb"
+
 cd /d "%ROOTDIR%\tests"
 
 for /R %%f in (*.bb) do (

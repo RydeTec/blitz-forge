@@ -58,12 +58,16 @@ static void _cdecl seTranslator( unsigned int u,EXCEPTION_POINTERS* pExp ){
 	switch( u ){
 	case EXCEPTION_INT_DIVIDE_BY_ZERO:
 		panicStr = "Integer divide by zero";
+		break;
 	case EXCEPTION_ACCESS_VIOLATION:
 		panicStr = "Memory access violation";
+		break;
 	case EXCEPTION_ILLEGAL_INSTRUCTION:
 		panicStr = "Illegal instruction";
+		break;
 	case EXCEPTION_STACK_OVERFLOW:
 		panicStr = "Stack overflow!";
+		break;
 	}
 
 	bbruntime_panic( panicStr.c_str() );
