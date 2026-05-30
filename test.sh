@@ -128,6 +128,47 @@ else
   run_target_expect_failure "foreign macOS target is rejected" -target macos-arm64
 fi
 
+# --- compiler diagnostic contract: human terminal output vs IDE machine format ---
+# A broken fixture (unterminated For) outside tests/ so it is not picked up by the
+# -t loop. Terminal mode prints a human "error:" diagnostic and never a raw control
+# byte for the EOF token; IDE mode (blitzide set) keeps the machine format the
+# editor parses (no "error:" prefix).
+DIAG_BB="${TEST_TMPDIR}/diag.bb"
+printf 'For i = 1 To 10\n' > "${DIAG_BB}"
+
+set +e
+( unset blitzide; "${BLITZCC}" -c +q "${DIAG_BB}" ) > "${TEST_TMPDIR}/diag-term.out" 2>&1
+set -e
+if ! grep -q "error:" "${TEST_TMPDIR}/diag-term.out"; then
+  echo "diagnostic contract FAILED: terminal output missing human 'error:' prefix" >&2
+  cat "${TEST_TMPDIR}/diag-term.out" >&2
+  FAILED=1
+fi
+if ! grep -q "end of file" "${TEST_TMPDIR}/diag-term.out"; then
+  echo "diagnostic contract FAILED: EOF error did not render '<end of file>'" >&2
+  cat "${TEST_TMPDIR}/diag-term.out" >&2
+  FAILED=1
+fi
+# A literal 0xFF byte must not appear (the pre-fix EOF-token leak).
+if LC_ALL=C grep -q "$(printf '\377')" "${TEST_TMPDIR}/diag-term.out"; then
+  echo "diagnostic contract FAILED: terminal output leaked a 0xFF control byte" >&2
+  FAILED=1
+fi
+
+set +e
+blitzide=1 "${BLITZCC}" -c +q "${DIAG_BB}" > "${TEST_TMPDIR}/diag-ide.out" 2>&1
+set -e
+if ! grep -q "Expecting" "${TEST_TMPDIR}/diag-ide.out"; then
+  echo "diagnostic contract FAILED: IDE mode produced no diagnostic" >&2
+  cat "${TEST_TMPDIR}/diag-ide.out" >&2
+  FAILED=1
+fi
+if grep -q "error:" "${TEST_TMPDIR}/diag-ide.out"; then
+  echo "diagnostic contract FAILED: IDE mode leaked the human 'error:' prefix" >&2
+  cat "${TEST_TMPDIR}/diag-ide.out" >&2
+  FAILED=1
+fi
+
 while IFS= read -r -d '' f; do
   if ! "${BLITZCC}" "${TARGET_FLAG[@]}" "${EXEC_FLAG[@]}" -t "${f}"; then
     echo "\"${f}\" failed at least one test"

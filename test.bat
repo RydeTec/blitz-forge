@@ -14,6 +14,15 @@ call :expect_success "host alias compiles NumberTest" -c +q -target host "%SAMPL
 call :expect_success "native Windows target compiles NumberTest" -c +q -target windows-x86 "%SAMPLE%"
 call :expect_failure "foreign macOS target is rejected" "Unsupported -target" -c +q -target macos-arm64 "%SAMPLE%"
 
+rem --- compiler diagnostic contract (human terminal output vs IDE machine format) ---
+rem Generate a broken fixture OUTSIDE tests\ so the -t loop and corpus sweep ignore it.
+set "DIAG_BB=%TEMP%\blitzforge-diag-%RANDOM%-%RANDOM%.bb"
+> "!DIAG_BB!" echo For i = 1 To 10
+call :expect_failure "terminal diagnostic shows human error: prefix" "error:" -c +q "!DIAG_BB!"
+call :expect_failure "EOF error names end of file, not a control byte" "end of file" -c +q "!DIAG_BB!"
+call :expect_ide_format "IDE machine format preserved under blitzide" "!DIAG_BB!"
+del /q "!DIAG_BB!" >nul 2>&1
+
 cd /d "%ROOTDIR%\tests"
 
 for /R %%f in (*.bb) do (
@@ -99,4 +108,29 @@ if !CLI_RC! NEQ 0 (
 )
 del /q "!CLI_LOG!" >nul 2>&1
 rmdir /s /q "!CLI_DIR!" >nul 2>&1
+exit /b 0
+
+:expect_ide_format
+rem With blitzide set, the compile-error output must stay the machine-readable
+rem format the IDE parses (no human "error:" prefix). The message ("Expecting...")
+rem appears in both modes; the "error:" prefix only in terminal mode.
+set "LABEL=%~1"
+set "IDE_BB=%~2"
+set "IDE_LOG=%TEMP%\blitzforge-ide-%RANDOM%-%RANDOM%.log"
+set "blitzide=1"
+"%BLITZPATH%\bin\blitzcc.exe" -c +q "!IDE_BB!" >"!IDE_LOG!" 2>&1
+set "blitzide="
+findstr /C:"Expecting" "!IDE_LOG!" >nul
+if errorlevel 1 (
+    echo IDE contract FAILED: !LABEL! produced no diagnostic
+    type "!IDE_LOG!"
+    set FAILED=1
+)
+findstr /C:"error:" "!IDE_LOG!" >nul
+if not errorlevel 1 (
+    echo IDE contract FAILED: !LABEL! leaked the human "error:" prefix into IDE output
+    type "!IDE_LOG!"
+    set FAILED=1
+)
+del /q "!IDE_LOG!" >nul 2>&1
 exit /b 0

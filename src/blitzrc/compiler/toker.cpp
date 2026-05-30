@@ -142,6 +142,10 @@ string Toker::text(){
 
 string Toker::textAt(int toke) {
 	if (toke >= tokes.size()) return "";
+	// The EOF token's source byte is (char)EOF (0xFF); rendering it verbatim in
+	// an error message ("Expecting 'Next' Got: <0xFF>") leaks a control byte to
+	// the terminal/log. Show a readable token instead.
+	if( tokes[toke].n==EOF ) return "<end of file>";
 	int from=tokes[toke].from,to=tokes[toke].to;
 	return line.substr( from,to-from );
 }
