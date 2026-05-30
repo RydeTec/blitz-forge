@@ -315,10 +315,18 @@ int bbCountHostIPs( BBStr *host ){
 }
 
 int bbHostIP( int index ){
-	if( debug ){
-		if (index<1 || index>(int)host_ips.size()){
+	// Validate in BOTH modes: in release the old code skipped the check and
+	// dereferenced host_ips[index-1] with a BASIC-supplied index -- HostIP(0)
+	// read host_ips[-1], HostIP(big) read past the vector (OOB heap read /
+	// info leak). Mirror the bank/stream guard idiom: clean RuntimeError in
+	// debug, errorLog + safe 0 in release.
+	if (index<1 || index>(int)host_ips.size()){
+		if( debug ){
 			RTEX( "Host index out of range" );
+		} else {
+			errorLog.push_back( "HostIP: Host index out of range" );
 		}
+		return 0;
 	}
 	return host_ips[index-1];
 }
