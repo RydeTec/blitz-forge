@@ -28,10 +28,10 @@ samples/Blitz 3D Samples/RobHutchinson/CraftFlare/CraftFlare.bb  # 'object' iden
 
 # --- Class B: disabled / unregistered builtin --------------------------------
 # Legacy Blitz3D builtins that are commented out or never registered in this
-# fork's runtime (e.g. SoundPan is commented out in bbruntime/bbaudio.cpp).
+# fork's runtime (e.g. PlayMusic / CreateListener / Load3DSound are still disabled;
+# SoundPan/ChannelPan were restored in the audio-pan PR).
 # Re-enabling each builtin removes the corresponding line(s).
-samples/Blitz 2D Samples/aristoids/aristoids.bb   # SoundPan not found
-samples/Blitz 2D Samples/spider/spider.bb         # SoundPan not found
+samples/Blitz 2D Samples/aristoids/aristoids.bb   # PlayMusic not found (SoundPan now restored; PlayMusic still disabled)
 samples/Blitz 2D Samples/Celestial Rift/Celestial Rift v1-0.bb   # PlayMusic not found
 samples/Blitz 2D Samples/Celestial Rift/Celestial Rift v1-1.bb   # PlayMusic not found
 samples/Blitz 2D Samples/Project DNA/Project DNA.bb              # PlayMusic not found
