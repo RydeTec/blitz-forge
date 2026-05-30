@@ -834,6 +834,35 @@ int _bbNewVector() {
 	return ptr;
 }
 
+// BBList index/emptiness guards, mirroring the bank/stream debug-vs-errorLog
+// idiom (see bbbank.cpp debugBank). In debug builds a bad index raises a clean
+// Blitz RuntimeError; otherwise it is logged and the caller returns a safe
+// default / no-ops -- never undefined behaviour from begin()+idx / front() /
+// back() / at() on a user-supplied index.
+static inline bool listIndexOk( std::vector<int>* v, int idx, const char* who ) {
+	if( idx < 0 || idx >= (int)v->size() ) {
+		if( debug ) {
+			RTEX( "List index out of range" );
+		} else {
+			errorLog.push_back( std::string(who) + ": List index out of range" );
+		}
+		return false;
+	}
+	return true;
+}
+
+static inline bool listNotEmpty( std::vector<int>* v, const char* who ) {
+	if( v->empty() ) {
+		if( debug ) {
+			RTEX( "List is empty" );
+		} else {
+			errorLog.push_back( std::string(who) + ": List is empty" );
+		}
+		return false;
+	}
+	return true;
+}
+
 void _bbVectorPushBack(int aPtr, int valuePtr) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
@@ -844,12 +873,14 @@ void _bbVectorPushBack(int aPtr, int valuePtr) {
 int _bbVectorBack(int aPtr) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	if( !listNotEmpty( vecPtr, "ListLast" ) ) return 0;
 	return static_cast<int>(vecPtr->back());
 }
 
 int _bbVectorFirst(int aPtr) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	if( !listNotEmpty( vecPtr, "ListFirst" ) ) return 0;
 	return static_cast<int>(vecPtr->front());
 }
 
@@ -862,7 +893,8 @@ int _bbVectorEmpty(int aPtr) {
 int _bbVectorAt(int aPtr, int idx) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
-	return static_cast<int>(vecPtr->at(idx));
+	if( !listIndexOk( vecPtr, idx, "ListAt" ) ) return 0;
+	return static_cast<int>((*vecPtr)[idx]);
 }
 
 void _bbVectorRelease(int aPtr, int idx) {
@@ -900,6 +932,16 @@ int _bbVectorSize(int aPtr) {
 void _bbVectorInsert(int aPtr, int idx, int valuePtr) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	// idx == size() is a valid append position, so listIndexOk (which rejects
+	// idx == size) is too strict here; check the insert range explicitly.
+	if( idx < 0 || idx > (int)vecPtr->size() ) {
+		if( debug ) {
+			RTEX( "List index out of range" );
+		} else {
+			errorLog.push_back( std::string("ListInsert: List index out of range") );
+		}
+		return;
+	}
 	vecPtr->insert(vecPtr->begin() + idx, valuePtr);
 	_bbReference(valuePtr);
 }
@@ -907,6 +949,7 @@ void _bbVectorInsert(int aPtr, int idx, int valuePtr) {
 void _bbVectorRemove(int aPtr, int idx) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	if( !listIndexOk( vecPtr, idx, "ListRemove" ) ) return;
 	_bbVectorRelease(aPtr, idx);
 	vecPtr->erase(vecPtr->begin() + idx);
 }
@@ -914,6 +957,7 @@ void _bbVectorRemove(int aPtr, int idx) {
 void _bbVectorReplace(int aPtr, int idx, int valuePtr) {
 	void* arrayPtr = reinterpret_cast<void*>(aPtr);
 	std::vector<int>* vecPtr = static_cast<std::vector<int>*>(arrayPtr);
+	if( !listIndexOk( vecPtr, idx, "ListReplace" ) ) return;
 	// Ref new before releasing old. Otherwise, if valuePtr is the same pointer
 	// already at idx, _bbVectorRemove drops its refcount to 0 and frees it;
 	// _bbVectorInsert then references freed memory.
