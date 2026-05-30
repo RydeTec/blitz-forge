@@ -20,12 +20,11 @@
 # that classic Blitz3D allowed as identifiers. The HIGH-priority contextual-keyword
 # fix would re-enable these. (`object` is a legacy Blitz3D keyword, not a fork
 # addition, but the program still uses it as an identifier.)
-samples/Blitz 2D Samples/fileio.bb        # 'test=' — test is now the Test keyword
-samples/Blitz 2D Samples/global.bb        # 'test=100'
-samples/Blitz 2D Samples/spindisc.bb      # 'release=1' — release is now the Release keyword
-samples/Blitz 3D Samples/birdie/Mirror/mirror.bb              # 'test=CreateCube()'
-samples/Blitz 3D Samples/Hi-Toro/Death Island/deathisland.bb  # 'test.Timer' parameter name
-samples/Blitz 3D Samples/RobHutchinson/CraftFlare/CraftFlare.bb  # 'object' identifier (legacy keyword)
+# NOTE: the four `test`-collision files (fileio/global/mirror/deathisland) were
+# removed once `Test` became a contextual keyword (PR: align/legacy-test-keyword-identifier);
+# they now compile. `release` and `object` remain (see below).
+samples/Blitz 2D Samples/spindisc.bb      # 'release=1' — Release is still a hard keyword (Phase 2: expression-position contextual)
+samples/Blitz 3D Samples/RobHutchinson/CraftFlare/CraftFlare.bb  # 'object' identifier (legacy Blitz3D keyword, not a fork addition)
 
 # --- Class B: disabled / unregistered builtin --------------------------------
 # Legacy Blitz3D builtins that are commented out or never registered in this
