@@ -29,6 +29,17 @@ Function FloatClose%( a#, b# )
     Return ( d < 0.0001 )
 End Function
 
+; Guard helpers for the scientific-notation tests below: names begin with 'e' but
+; are NOT valid float exponents ([eE][+-]?<digit>), so the lexer must treat them as
+; identifiers, never swallow them into a preceding float literal.
+Function e#()
+    Return 0.0
+End Function
+
+Function identExp#()
+    Return 0.0
+End Function
+
 ; Trig is DEGREE-based in Blitz (Sin(90)=1, not Sin(pi/2)). This is a deliberate,
 ; non-obvious contract; pin it so a future "fix" to radians is caught.
 Test testDegreeTrig()
@@ -139,4 +150,52 @@ Test testRndSeedState()
     SeedRnd( 7777 )
     Rand( 1, 100 ) : Rand( 1, 100 )
     Assert( RndSeed() = s1 )
+End Test
+
+; --- Scientific-notation (exponent) float literals ---
+; The lexer must recognize [eE][+-]?<digit> as a float exponent. Pin the canonical
+; forms AND the conservative guard: a bare 'e' with no valid exponent digit must
+; NOT be swallowed into the literal. Value conversion is via atof(), so a literal
+; that spans the exponent is already evaluated correctly.
+
+Test testSciNotationBasic()
+    Assert( FloatClose( 1.5e3,  1500.0 ) )
+    Assert( FloatClose( 2.0e-3, 0.002 ) )
+    Assert( FloatClose( 1.0e+2, 100.0 ) )
+End Test
+
+; The riskiest paths: no decimal point ("no-dot" promotion to float) and leading
+; dot. 1e6 must be a FLOAT (1000000.0), not an int.
+Test testSciNotationNoDotAndLeadingDot()
+    Assert( FloatClose( 1e6,  1000000.0 ) )
+    Assert( FloatClose( .5e2, 50.0 ) )
+    Local v# = 1e6
+    Assert( FloatClose( v, 1000000.0 ) )
+End Test
+
+; Exponent literals must compose in arithmetic expressions, not just standalone.
+Test testSciNotationArithmetic()
+    Assert( FloatClose( 2.0e-3 * 1000.0, 2.0 ) )
+    Assert( FloatClose( 1.5e3 + 2.5e3, 4000.0 ) )
+    Assert( FloatClose( 1e2 / 4.0, 25.0 ) )
+End Test
+
+; A very large exponent must compile and yield a huge positive float. FloatClose's
+; 0.0001 absolute tolerance is meaningless at 1e30 (float granularity there is
+; ~1e23), so assert by magnitude/relationship instead of epsilon-equality.
+Test testSciNotationLargeMagnitude()
+    Local big# = 1.0e30
+    Assert( big > 1.0e29 )
+    Assert( big > 999999.0 )
+    Assert( FloatClose( big / 1.0e30, 1.0 ) )
+End Test
+
+; CONSERVATIVE GUARD: 'e' not followed by [+-]?<digit> must tokenize as the float
+; followed by a separate identifier. e() and identExp() return 0.0, so the sums
+; must equal 1.0; if the lexer greedily ate a bad 'e' the program would fail to
+; compile instead.
+Test testSciNotationConservativeGuard()
+    Assert( FloatClose( 1.0 + e(), 1.0 ) )
+    Assert( FloatClose( 1.0 + identExp(), 1.0 ) )
+    Assert( FloatClose( 1.0e1, 10.0 ) )
 End Test
