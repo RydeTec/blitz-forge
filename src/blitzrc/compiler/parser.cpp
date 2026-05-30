@@ -63,7 +63,11 @@ void Parser::exp( const string &s ){
 }
 
 string Parser::parseIdent(){
-	if( toker->curr()!=IDENT ) exp( "identifier near: " + toker->text() );
+	// 'Test' is a contextual keyword: it is only the test-block opener at
+	// statement start (handled in parseStmtSeq). In every identifier position --
+	// parameter names, Local/Global/Field declarations, type tags, labels -- it is
+	// an ordinary identifier, so legacy programs using `test` as a name compile.
+	if( toker->curr()!=IDENT && toker->curr()!=TEST ) exp( "identifier near: " + toker->text() );
 	string t=toker->text();
 	if (t.find(":") != std::string::npos) ex( "Identifiers cannot include the : character");
 	toker->next();
@@ -150,7 +154,15 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			toker->next();
 		}
 
-		switch( toker->curr() ){
+		// 'Test' is a contextual keyword: it opens a test block only in the form
+		// `Test <ident>(` at program scope. Used as an assignment target, call,
+		// or with a type tag/field, it is an ordinary identifier -- so legacy
+		// Blitz3D programs that use `test` as a variable still compile (drop-in
+		// source compatibility). Route those uses through the IDENT statement path.
+		int stmtTok = toker->curr();
+		if( stmtTok==TEST && !(scope==STMTS_PROG && toker->lookAhead(1)==IDENT) ) stmtTok=IDENT;
+
+		switch( stmtTok ){
 		case INCLUDE:
 			{
 				if( scope!=STMTS_PROG ) ex( "'Include' can only appear in main program" );
@@ -1120,6 +1132,7 @@ ExprNode *Parser::parsePrimary( bool opt ){
 	case BBFALSE:
 		result=d_new IntConstNode( 0 );
 		toker->next();break;
+	case TEST:	// contextual keyword: usable as an identifier in expressions
 	case IDENT:
 		ident=toker->text();
 		toker->next();tag=parseTypeTag();
