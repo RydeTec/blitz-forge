@@ -47,14 +47,19 @@ content="text/html; charset=iso-8859-1">
       End Type<br>
       <br>
       Local t.TestType = New TestType()<br>
-      ; RefCount reports how many references currently keep an object alive<br>
+      ; RefCount reports the object's tracked reference count<br>
       Print RefCount( First TestType ) ; prints 1</i></p>
   </blockquote>
-  <p>When the last reference to an object goes away, the object is released
-    automatically. <i>RefCount</i> lets you inspect the live reference count, which
-    is useful when reasoning about ownership. Note that reference cycles
-    (objects that point at each other) are not collected automatically &mdash; break
-    the cycle yourself, or avoid the back-reference. <i>(tests/GarbageCollectionTest.bb)</i></p>
+  <p>An object is released automatically when the variable holding it goes out of
+    scope (or is reassigned). <i>RefCount</i> lets you inspect an object's tracked
+    reference count. Note that the count follows the object's lifetime binding, not
+    every alias: binding a second variable to the same object does not raise its
+    <i>RefCount</i>, and field assignments are not counted. A practical consequence
+    is that a reference <i>cycle</i> &mdash; two objects pointing at each other
+    through fields &mdash; is still collected when the holding variables leave
+    scope (the field back-references add no counts), so cycles do not leak. Keep a
+    live variable referencing anything you need to retain. <i>(see the contract
+    pinned in tests/GarbageCollectionTest.bb)</i></p>
 
   <p class="header">Type inheritance</p>
   <p>A type can extend another type by naming the parent with a <i>.</i> tag in its
