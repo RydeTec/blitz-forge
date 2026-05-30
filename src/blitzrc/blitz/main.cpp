@@ -17,6 +17,7 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <cstdlib>
 
 using namespace std;
 
@@ -340,10 +341,36 @@ int _cdecl main( int argc,char *argv[] ){
 		assem.assemble();
 		
 	}catch( Ex &x ){
-		
-		string file='\"'+x.file+'\"';
+
 		int row=((x.pos>>16)&65535)+1,col=(x.pos&65535)+1;
-		cout<<file<<":"<<row<<":"<<col<<":"<<row<<":"<<col<<":"<<x.ex<<endl;
+
+		if( getenv( "blitzide" ) ){
+			// The IDE / VS Code extension parses this exact machine-readable
+			// format -- keep it byte-for-byte identical.
+			string file='\"'+x.file+'\"';
+			cout<<file<<":"<<row<<":"<<col<<":"<<row<<":"<<col<<":"<<x.ex<<endl;
+		}else{
+			// Human at the terminal: a clang-style diagnostic with the offending
+			// source line and a caret. Falls back to message-only when there is
+			// no position (assembler/fileless errors) or the line can't be read.
+			if( x.pos<0 || x.file.empty() ){
+				cout<<"error: "<<x.ex<<endl;
+			}else{
+				cout<<x.file<<":"<<row<<":"<<col<<": error: "<<x.ex<<endl;
+				ifstream src( x.file.c_str() );
+				string line;int cur=0;bool got=false;
+				while( getline( src,line ) ){ if( ++cur==row ){ got=true;break; } }
+				if( got ){
+					if( line.size() && line[line.size()-1]=='\r' ) line.resize( line.size()-1 );
+					cout<<"  "<<line<<endl;
+					string caret="  ";
+					for( int i=0;i<col-1 && i<(int)line.size();++i )
+						caret += (line[i]=='\t') ? '\t' : ' ';
+					caret+='^';
+					cout<<caret<<endl;
+				}
+			}
+		}
 		exit(-1);
 	}
 
