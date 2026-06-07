@@ -20,3 +20,6 @@ bin/runtime.dylib
 release/
 
 build/
+
+# Git worktrees created by agent isolation (live checkouts, never committed)
+.worktrees/
