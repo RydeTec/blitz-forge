@@ -308,17 +308,39 @@ void _bbObjDelete( BBObj *obj ){
 		handle_map.erase( it->second );
 		object_map.erase( it );
 	}
+	// GC desync guard: Delete / Delete Each reach here without going through
+	// the GC layer, leaving the pointer counted in reference_map. A later
+	// _bbRelease on that stale entry would re-run _bbObjDelete against a
+	// freed -- possibly recycled -- slot and release garbage "fields"
+	// (heap corruption surfacing as the intermittent exit-time crash).
+	// Erasing here makes the stale release a no-op; the GC's own delete
+	// path erases before calling us, so this is a no-op double-erase there.
+	reference_map.erase( reinterpret_cast<int>(obj) );
 	obj->fields=0;
 	_bbObjRelease( obj );
 	--objCnt;
 }
 
 void _bbObjDeleteEach( BBObjType *type ){
+	// Restart-on-delete walk. The field-release cascade inside _bbObjDelete
+	// can drop another node's ref count to zero and move it from `used` to
+	// `free` -- including the would-be captured `next` (chain shape: a
+	// zombie kept alive only by its predecessor's field). A captured-next
+	// walk that steps onto a node relocated to the free list terminates at
+	// the free sentinel, silently leaving the rest of the list undeleted
+	// (deterministic repro: tests/DeleteEachChainTest.bb), or wanders
+	// invalid linkage. Re-reading used.next after every delete only ever
+	// observes live list state; zombies (fields==0) are stepped over
+	// in-place, and each delete removes at least one fielded node from
+	// `used`, so the walk terminates.
 	BBObj *obj=type->used.next;
 	while( obj->type ){
-		BBObj *next=obj->next;
-		if( obj->fields ) _bbObjDelete( obj );
-		obj=next;
+		if( obj->fields ){
+			_bbObjDelete( obj );
+			obj=type->used.next;
+		}else{
+			obj=obj->next;
+		}
 	}
 }
 

@@ -52,6 +52,27 @@ static void killer(){
 }
 #endif
 
+// Describe a code/data address as "module+0xOFFSET" when it falls inside a
+// loaded module, else as a raw pointer. Module-relative offsets stay stable
+// across ASLR runs, so an intermittent fault becomes attributable to a
+// specific function via the linker map even when it only fires 1-in-20 runs.
+static string describeAddress( void *addr ){
+	char buf[160];
+	MEMORY_BASIC_INFORMATION mbi;
+	if( addr && VirtualQuery( addr,&mbi,sizeof(mbi) ) && mbi.AllocationBase ){
+		char path[MAX_PATH];
+		DWORD n=GetModuleFileName( (HMODULE)mbi.AllocationBase,path,MAX_PATH );
+		if( n ){
+			const char *base=path;
+			for( const char *p=path;*p;++p ) if( *p=='\\'||*p=='/' ) base=p+1;
+			sprintf( buf,"%s+0x%X",base,(unsigned int)((char*)addr-(char*)mbi.AllocationBase) );
+			return buf;
+		}
+	}
+	sprintf( buf,"0x%p",addr );
+	return buf;
+}
+
 static void _cdecl seTranslator( unsigned int u,EXCEPTION_POINTERS* pExp ){
 
 	string panicStr = "Unknown runtime exception";
@@ -68,6 +89,27 @@ static void _cdecl seTranslator( unsigned int u,EXCEPTION_POINTERS* pExp ){
 	case EXCEPTION_STACK_OVERFLOW:
 		panicStr = "Stack overflow!";
 		break;
+	}
+
+	// Append fault diagnostics: exception code, faulting instruction
+	// (module-relative), and for access violations the access kind and
+	// target address. Without this every intermittent native crash is an
+	// unattributable one-liner; with it the offset maps to a function via
+	// the linker map. Stack-overflow handling stays minimal on purpose --
+	// describeAddress allocates stack, and the guard page is already blown.
+	if( pExp && pExp->ExceptionRecord && u!=EXCEPTION_STACK_OVERFLOW ){
+		EXCEPTION_RECORD *er=pExp->ExceptionRecord;
+		char info[64];
+		sprintf( info," [code 0x%08X at ",(unsigned int)er->ExceptionCode );
+		panicStr+=info;
+		panicStr+=describeAddress( er->ExceptionAddress );
+		if( u==EXCEPTION_ACCESS_VIOLATION && er->NumberParameters>=2 ){
+			const char *kind=er->ExceptionInformation[0]==0 ? "reading" :
+				(er->ExceptionInformation[0]==1 ? "writing" : "executing");
+			sprintf( info,", %s 0x%08X",kind,(unsigned int)er->ExceptionInformation[1] );
+			panicStr+=info;
+		}
+		panicStr+="]";
 	}
 
 	bbruntime_panic( panicStr.c_str() );
