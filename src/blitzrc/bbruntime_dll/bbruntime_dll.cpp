@@ -13,6 +13,7 @@ using namespace std;
 #include <map>
 #include <eh.h>
 #include <float.h>
+#include <dbghelp.h>	// SYMBOL_INFO for the lazy dbghelp symbolizer (no link dep)
 
 #include "../bbruntime/bbruntime.h"
 
@@ -52,6 +53,36 @@ static void killer(){
 }
 #endif
 
+// Best-effort symbol lookup through dbghelp (system DLL, loaded lazily so we
+// add no link dependency). With PDBs alongside the binaries this turns a
+// module-relative crash offset into a function name + displacement.
+typedef BOOL (WINAPI *SymInitialize_t)( HANDLE,PCSTR,BOOL );
+typedef BOOL (WINAPI *SymFromAddr_t)( HANDLE,DWORD64,PDWORD64,PSYMBOL_INFO );
+static string symbolName( void *addr ){
+	static SymFromAddr_t pSymFromAddr=0;
+	static bool tried=false;
+	if( !tried ){
+		tried=true;
+		if( HMODULE dh=LoadLibraryA( "dbghelp.dll" ) ){
+			SymInitialize_t pInit=(SymInitialize_t)GetProcAddress( dh,"SymInitialize" );
+			SymFromAddr_t pFrom=(SymFromAddr_t)GetProcAddress( dh,"SymFromAddr" );
+			if( pInit && pFrom && pInit( GetCurrentProcess(),0,TRUE ) ) pSymFromAddr=pFrom;
+		}
+	}
+	if( !pSymFromAddr ) return "";
+	char symbuf[sizeof(SYMBOL_INFO)+256];
+	SYMBOL_INFO *sym=(SYMBOL_INFO*)symbuf;
+	sym->SizeOfStruct=sizeof(SYMBOL_INFO);
+	sym->MaxNameLen=255;
+	DWORD64 disp=0;
+	if( pSymFromAddr( GetCurrentProcess(),(DWORD64)(uintptr_t)addr,&disp,sym ) ){
+		char out[320];
+		sprintf( out," (%s+0x%X)",sym->Name,(unsigned int)disp );
+		return out;
+	}
+	return "";
+}
+
 // Describe a code/data address as "module+0xOFFSET" when it falls inside a
 // loaded module, else as a raw pointer. Module-relative offsets stay stable
 // across ASLR runs, so an intermittent fault becomes attributable to a
@@ -66,7 +97,7 @@ static string describeAddress( void *addr ){
 			const char *base=path;
 			for( const char *p=path;*p;++p ) if( *p=='\\'||*p=='/' ) base=p+1;
 			sprintf( buf,"%s+0x%X",base,(unsigned int)((char*)addr-(char*)mbi.AllocationBase) );
-			return buf;
+			return string( buf )+symbolName( addr );
 		}
 	}
 	sprintf( buf,"0x%p",addr );
@@ -99,7 +130,7 @@ static void _cdecl seTranslator( unsigned int u,EXCEPTION_POINTERS* pExp ){
 	// describeAddress allocates stack, and the guard page is already blown.
 	if( pExp && pExp->ExceptionRecord && u!=EXCEPTION_STACK_OVERFLOW ){
 		EXCEPTION_RECORD *er=pExp->ExceptionRecord;
-		char info[64];
+		char info[96];
 		sprintf( info," [code 0x%08X at ",(unsigned int)er->ExceptionCode );
 		panicStr+=info;
 		panicStr+=describeAddress( er->ExceptionAddress );
@@ -110,6 +141,61 @@ static void _cdecl seTranslator( unsigned int u,EXCEPTION_POINTERS* pExp ){
 			panicStr+=info;
 		}
 		panicStr+="]";
+
+		// Code bytes at the faulting instruction: lets an intermittent fault
+		// in dynamically-emitted Blitz code (not part of any module, so no
+		// symbols) be disassembled after the fact.
+		if( pExp->ContextRecord ){
+			CONTEXT *cx=pExp->ContextRecord;
+			unsigned char *ip=(unsigned char*)cx->Eip;
+			MEMORY_BASIC_INFORMATION mbi;
+			if( ip && VirtualQuery( ip,&mbi,sizeof(mbi) ) && mbi.State==MEM_COMMIT ){
+				panicStr+="\ncode:";
+				for( int k=0;k<16;++k ){
+					sprintf( info," %02X",ip[k] );
+					panicStr+=info;
+				}
+			}
+			sprintf( info,"\nregs: eax=%08X ebx=%08X ecx=%08X edx=%08X esi=%08X edi=%08X esp=%08X ebp=%08X",
+				(unsigned)cx->Eax,(unsigned)cx->Ebx,(unsigned)cx->Ecx,(unsigned)cx->Edx,
+				(unsigned)cx->Esi,(unsigned)cx->Edi,(unsigned)cx->Esp,(unsigned)cx->Ebp );
+			panicStr+=info;
+			// When the fault is inside an anonymous (non-module) executable
+			// allocation -- dynamically emitted Blitz code -- dump the image
+			// from its allocation base so the instruction stream leading to
+			// the fault can be disassembled offline.
+			if( ip && VirtualQuery( ip,&mbi,sizeof(mbi) ) && mbi.State==MEM_COMMIT && mbi.AllocationBase ){
+				char path[MAX_PATH];
+				if( !GetModuleFileName( (HMODULE)mbi.AllocationBase,path,MAX_PATH ) ){
+					unsigned char *base=(unsigned char*)mbi.AllocationBase;
+					unsigned int len=0x280;
+					sprintf( info,"\nimage @0x%p (fault offset 0x%X):",base,(unsigned int)(ip-base) );
+					panicStr+=info;
+					for( unsigned int k=0;k<len;++k ){
+						if( (k&15)==0 ){ sprintf( info,"\n%04X:",k ); panicStr+=info; }
+						sprintf( info," %02X",base[k] );
+						panicStr+=info;
+					}
+				}
+			}
+			// EBP-chain walk. Generated Blitz code keeps classic EBP frames,
+			// so this reaches the generated main and the runtime-DLL callers
+			// (which describeAddress symbolizes as module+offset).
+			panicStr+="\nstack:";
+			unsigned int ebp=cx->Ebp;
+			for( int f=0;f<12 && ebp;++f ){
+				if( !VirtualQuery( (void*)ebp,&mbi,sizeof(mbi) ) || mbi.State!=MEM_COMMIT
+					|| (mbi.Protect&(PAGE_GUARD|PAGE_NOACCESS)) ) break;
+				if( (char*)ebp+8 > (char*)mbi.BaseAddress+mbi.RegionSize ) break;
+				unsigned int ret=((unsigned int*)ebp)[1];
+				unsigned int prev=((unsigned int*)ebp)[0];
+				if( !ret ) break;
+				panicStr+=" <- ";
+				panicStr+=describeAddress( (void*)ret );
+				if( prev<=ebp ) break;
+				ebp=prev;
+			}
+		}
 	}
 
 	bbruntime_panic( panicStr.c_str() );

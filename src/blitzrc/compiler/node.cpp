@@ -125,14 +125,27 @@ TNode *Node::deleteVars( Environ *e, Codegen *g ){
 			}
 		}
 
-		if (type->structType() || type->blitzType()) {
+		// GC release of frame-resident object refs (locals AND params --
+		// the call protocol references args on the way in, the callee
+		// releases them here). Must be gated on frame-resident kinds: for
+		// main() this environ also contains the program GLOBALS, whose
+		// Decl::offset is never assigned by frame layout. Ungated, main's
+		// epilogue emitted
+		//     __bbRelease( [ebp + <uninitialized offset>], "type" )
+		// -- a wild stack-relative read. When the stale offset happened to
+		// be 0 it read the saved-EBP slot and _bbRelease lookup-missed
+		// (harmless); when it was heap garbage it access-violated. That was
+		// the long-standing intermittent exit-time crash in downstream
+		// (rcce2) CI: ItemsTest / OnlinePlayerChainTest failing ~2-12% of
+		// runs with an AV at a stable program offset after the last test.
+		if ((type->structType() || type->blitzType()) && (d->kind==DECL_LOCAL || d->kind==DECL_PARAM)) {
 			string typeName = "";
 
 			if (type->structType()) {
 				typeName = "BBCustom";
 			} else if (type->blitzType()) {
 				BlitzType* ty = type->blitzType();
-				
+
 				typeName = ty->ident;
 			}
 
