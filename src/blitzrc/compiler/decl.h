@@ -15,7 +15,10 @@ struct Decl{
 	Type *type;			//type
 	int kind,offset;
 	ConstType *defType;	//default value
-	Decl( const string &s,Type *t,int k,ConstType *d=0 ):name(s),type(t),kind(k),defType(d){}
+	// offset is only assigned during frame layout (locals/params); default
+	// it to 0 so any future read of a non-frame Decl's offset is a
+	// deterministic 0 instead of run-varying uninitialized memory.
+	Decl( const string &s,Type *t,int k,ConstType *d=0 ):name(s),type(t),kind(k),offset(0),defType(d){}
 	~Decl();
 
 	virtual void getName( char *buff );

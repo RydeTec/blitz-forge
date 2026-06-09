@@ -65,7 +65,44 @@ repro), fix it minimally in the runtime, and pin it with regression tests.
 6. **Land**: BlitzForge PR → merge → rcce2 submodule-bump PR → update rcce2
    CLAUDE.md flake note.
 
-## Fallback floor (if root cause resists one iteration)
+## RESOLUTION (round 2) — the real root cause was in CODEGEN, not the pool
+
+The two pool defects above were real (deterministically pinned by
+`tests/DeleteEachChainTest.bb` / `tests/DeleteEachGCRefMapTest.bb`, fixed in
+PR #85) but the 300-run statistical gate showed the flake persisted at the
+baseline rate — they were not its mechanism.
+
+Round-2 diagnostics (registers + full hex dump of the generated-code
+allocation + dbghelp-symbolized EBP walk) pinned the truth:
+
+- The fault was always at the same generated-image offset, in **main's
+  epilogue**, executing `mov ebx,[ebp+<garbage disp32>]` — and comparing
+  against the object image embedded in a `-o` exe showed the same
+  instruction as `mov ebx,[ebp+0x00]` (disp8). The displacement differed
+  *at assembly time* per process run.
+- Source: `node.cpp deleteVars()` emitted the GC release
+  `__bbRelease( mem(local(d->offset)), type )` for **every** struct/blitz
+  typed decl in the environ — without the `d->kind` gate every sibling
+  branch has. For main(), the environ includes the program **GLOBALS**,
+  whose `Decl::offset` is never assigned by frame layout —
+  **uninitialized memory** (the `Decl` constructor omitted it from the
+  initializer list). Usually the stale heap value was 0 → `[ebp+0]` reads
+  the saved-EBP slot, `_bbRelease` lookup-misses, run passes. Sometimes it
+  was heap garbage (run-varying ASCII fragments in the dumps) → wild read
+  → access violation. GC on/off is irrelevant — the wild *read* precedes
+  the no-op release, which is why the non-GC chain test crashed the same
+  way.
+
+Fix: gate the emission on frame-resident kinds (`DECL_LOCAL || DECL_PARAM`
+— params must stay: the call protocol references args on the way in and
+the callee releases them; a LOCAL-only gate fails GarbageCollectionTest),
+plus zero-init `Decl::offset` as defense-in-depth.
+
+Verification: pre-fix baseline ItemsTest 2/100 + 12/300, chain test 12/100
++ 27/300; post-fix **0/300 + 0/300** (at baseline rates ~6-12 and ~27-36
+failures were expected; p < 1e-8). BlitzForge suite green.
+
+## Fallback floor (superseded — root cause found)
 
 The instrumentation, measured baseline, probe results, and this note merge
 anyway — converting an opaque flake into an addressable bug with evidence.
