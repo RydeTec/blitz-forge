@@ -77,7 +77,7 @@ static string symbolName( void *addr ){
 	DWORD64 disp=0;
 	if( pSymFromAddr( GetCurrentProcess(),(DWORD64)(uintptr_t)addr,&disp,sym ) ){
 		char out[320];
-		sprintf( out," (%s+0x%X)",sym->Name,(unsigned int)disp );
+		snprintf( out,sizeof(out)," (%s+0x%X)",sym->Name,(unsigned int)disp );
 		return out;
 	}
 	return "";
@@ -96,11 +96,11 @@ static string describeAddress( void *addr ){
 		if( n ){
 			const char *base=path;
 			for( const char *p=path;*p;++p ) if( *p=='\\'||*p=='/' ) base=p+1;
-			sprintf( buf,"%s+0x%X",base,(unsigned int)((char*)addr-(char*)mbi.AllocationBase) );
+			snprintf( buf,sizeof(buf),"%s+0x%X",base,(unsigned int)((char*)addr-(char*)mbi.AllocationBase) );
 			return string( buf )+symbolName( addr );
 		}
 	}
-	sprintf( buf,"0x%p",addr );
+	snprintf( buf,sizeof(buf),"0x%p",addr );
 	return buf;
 }
 
@@ -130,14 +130,18 @@ static void _cdecl seTranslator( unsigned int u,EXCEPTION_POINTERS* pExp ){
 	// describeAddress allocates stack, and the guard page is already blown.
 	if( pExp && pExp->ExceptionRecord && u!=EXCEPTION_STACK_OVERFLOW ){
 		EXCEPTION_RECORD *er=pExp->ExceptionRecord;
-		char info[96];
-		sprintf( info," [code 0x%08X at ",(unsigned int)er->ExceptionCode );
+		// Scratch must hold the longest line: the regs dump is 110 chars
+		// + NUL. Format exclusively through snprintf(sizeof) so the crash
+		// handler can never corrupt its own stack frame (review finding:
+		// the first revision sprintf'd 111 bytes into a 96-byte buffer).
+		char info[160];
+		snprintf( info,sizeof(info)," [code 0x%08X at ",(unsigned int)er->ExceptionCode );
 		panicStr+=info;
 		panicStr+=describeAddress( er->ExceptionAddress );
 		if( u==EXCEPTION_ACCESS_VIOLATION && er->NumberParameters>=2 ){
 			const char *kind=er->ExceptionInformation[0]==0 ? "reading" :
 				(er->ExceptionInformation[0]==1 ? "writing" : "executing");
-			sprintf( info,", %s 0x%08X",kind,(unsigned int)er->ExceptionInformation[1] );
+			snprintf( info,sizeof(info),", %s 0x%08X",kind,(unsigned int)er->ExceptionInformation[1] );
 			panicStr+=info;
 		}
 		panicStr+="]";
@@ -152,11 +156,11 @@ static void _cdecl seTranslator( unsigned int u,EXCEPTION_POINTERS* pExp ){
 			if( ip && VirtualQuery( ip,&mbi,sizeof(mbi) ) && mbi.State==MEM_COMMIT ){
 				panicStr+="\ncode:";
 				for( int k=0;k<16;++k ){
-					sprintf( info," %02X",ip[k] );
+					snprintf( info,sizeof(info)," %02X",ip[k] );
 					panicStr+=info;
 				}
 			}
-			sprintf( info,"\nregs: eax=%08X ebx=%08X ecx=%08X edx=%08X esi=%08X edi=%08X esp=%08X ebp=%08X",
+			snprintf( info,sizeof(info),"\nregs: eax=%08X ebx=%08X ecx=%08X edx=%08X esi=%08X edi=%08X esp=%08X ebp=%08X",
 				(unsigned)cx->Eax,(unsigned)cx->Ebx,(unsigned)cx->Ecx,(unsigned)cx->Edx,
 				(unsigned)cx->Esi,(unsigned)cx->Edi,(unsigned)cx->Esp,(unsigned)cx->Ebp );
 			panicStr+=info;
@@ -169,12 +173,22 @@ static void _cdecl seTranslator( unsigned int u,EXCEPTION_POINTERS* pExp ){
 				if( !GetModuleFileName( (HMODULE)mbi.AllocationBase,path,MAX_PATH ) ){
 					unsigned char *base=(unsigned char*)mbi.AllocationBase;
 					unsigned int len=0x280;
-					sprintf( info,"\nimage @0x%p (fault offset 0x%X):",base,(unsigned int)(ip-base) );
-					panicStr+=info;
-					for( unsigned int k=0;k<len;++k ){
-						if( (k&15)==0 ){ sprintf( info,"\n%04X:",k ); panicStr+=info; }
-						sprintf( info," %02X",base[k] );
+					// Bound the dump to the committed region that actually
+					// contains the allocation base -- it can differ from the
+					// region containing the faulting IP, and a nested fault
+					// inside the handler would truncate the whole panic.
+					MEMORY_BASIC_INFORMATION mbiDump;
+					if( VirtualQuery( base,&mbiDump,sizeof(mbiDump) ) && mbiDump.State==MEM_COMMIT
+						&& !(mbiDump.Protect&(PAGE_GUARD|PAGE_NOACCESS)) ){
+						unsigned int avail=(unsigned int)((char*)mbiDump.BaseAddress+mbiDump.RegionSize-(char*)base);
+						if( len>avail ) len=avail;
+						snprintf( info,sizeof(info),"\nimage @0x%p (fault offset 0x%X):",base,(unsigned int)(ip-base) );
 						panicStr+=info;
+						for( unsigned int k=0;k<len;++k ){
+							if( (k&15)==0 ){ snprintf( info,sizeof(info),"\n%04X:",k ); panicStr+=info; }
+							snprintf( info,sizeof(info)," %02X",base[k] );
+							panicStr+=info;
+						}
 					}
 				}
 			}
